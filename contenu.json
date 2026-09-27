@@ -1,0 +1,12 @@
+{
+    "version": 1,
+    "contenus": [
+        {
+            "niveau": "Secondaire",
+            "classe": "6e",
+            "matiere": "Mathématiques",
+            "titre": "Test de mise à jour",
+            "contenu": "Ceci est un contenu téléchargé depuis le serveur CIFON."
+        }
+    ]
+}
