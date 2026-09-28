@@ -2,6 +2,7 @@
     "version": 2,
     "contenus": [
         {
+            "id_contenu": "test_math_6e_001",
             "niveau": "Secondaire",
             "classe": "6e",
             "matiere": "Mathématiques",
@@ -9,6 +10,7 @@
             "contenu": "Félicitations ! Ce contenu provient de la mise à jour 1.1 du serveur CIFON."
         },
         {
+            "id_contenu": "test_francais_6e_001",
             "niveau": "Secondaire",
             "classe": "6e",
             "matiere": "Français",
