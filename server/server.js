@@ -280,7 +280,80 @@ app.post("/generer-cours", async (req, res) => {
 /* ============================================================
    DÉMARRAGE DU SERVEUR
    ============================================================ */
+// ============================================================
+// TEST SIMPLE DE GENERATION
+// ============================================================
 
+app.get("/test-generation", async (req, res) => {
+
+    try {
+
+        const apiKey = process.env.OPENAI_API_KEY;
+
+        if (!apiKey) {
+            return res.status(500).json({
+                success: false,
+                erreur: "OPENAI_API_KEY n'est pas configurée."
+            });
+        }
+
+        const reponse = await fetch(
+            "https://api.openai.com/v1/responses",
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + apiKey
+                },
+
+                body: JSON.stringify({
+                    model: "gpt-6-luna",
+
+                    input: [
+                        {
+                            role: "system",
+                            content:
+                                "Tu es le moteur pédagogique de CIFON PÉDAGOGIE NIGER."
+                        },
+                        {
+                            role: "user",
+                            content:
+                                "Prépare un très court exemple de cours de mathématiques pour une classe de 6e sur le cube et le pavé droit."
+                        }
+                    ]
+                })
+            }
+        );
+
+        const data = await reponse.json();
+
+        if (!reponse.ok) {
+
+            return res.status(reponse.status).json({
+                success: false,
+                erreur: data
+            });
+        }
+
+        const texte = extraireTexteReponse(data);
+
+        return res.json({
+            success: true,
+            message: "La génération fonctionne.",
+            cours: texte
+        });
+
+    } catch (erreur) {
+
+        console.error("Erreur test-generation :", erreur);
+
+        return res.status(500).json({
+            success: false,
+            erreur: erreur.message
+        });
+    }
+});
 app.listen(PORT, () => {
 
     console.log(
