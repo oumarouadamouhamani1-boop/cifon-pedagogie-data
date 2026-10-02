@@ -1,1 +1,16 @@
 
+{
+  "name": "cifon-pedagogie-server",
+  "version": "1.0.0",
+  "description": "Serveur de génération de cours de CIFON PÉDAGOGIE NIGER",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
