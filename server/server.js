@@ -1,432 +1,433 @@
+// ============================================================
+// CIFON PÉDAGOGIE NIGER
+// SERVEUR DE GÉNÉRATION DE COURS
+// Version pédagogique structurée
+// ============================================================
+
 const express = require("express");
+const cors = require("cors");
 
 const app = express();
 
 const PORT = process.env.PORT || 3000;
 
+const VERSION = "2.0.0";
 
-/* ============================================================
-   CONFIGURATION EXPRESS
-   ============================================================ */
+const NOM_SERVEUR = "CIFON PÉDAGOGIE NIGER";
 
-app.use(express.json({ limit: "1mb" }));
+const OPENAI_API_URL =
+    "https://api.openai.com/v1/responses";
 
+const MODELE_OPENAI = "gpt-6-luna";
 
-/* ============================================================
-   CORS
-   ============================================================ */
+// ============================================================
+// MIDDLEWARES
+// ============================================================
 
-app.use((req, res, next) => {
+app.use(cors());
 
-    res.header(
-        "Access-Control-Allow-Origin",
-        "*"
-    );
+app.use(
+    express.json({
+        limit: "2mb"
+    })
+);
 
-    res.header(
-        "Access-Control-Allow-Headers",
-        "Origin, X-Requested-With, Content-Type, Accept"
-    );
-
-    res.header(
-        "Access-Control-Allow-Methods",
-        "GET, POST, OPTIONS"
-    );
-
-    if (req.method === "OPTIONS") {
-        return res.sendStatus(200);
-    }
-
-    next();
-});
-
-
-/* ============================================================
-   ACCUEIL DU SERVEUR
-   ============================================================ */
+// ============================================================
+// ROUTE PRINCIPALE
+// ============================================================
 
 app.get("/", (req, res) => {
 
     res.json({
-
-        nom: "CIFON PÉDAGOGIE NIGER",
-
-        serveur:
-            "Serveur de génération de cours",
-
-        statut:
-            "fonctionnel",
-
-        version:
-            "1.0.0"
-
+        success: true,
+        serveur: NOM_SERVEUR,
+        version: VERSION,
+        message:
+            "Serveur CIFON PÉDAGOGIE NIGER opérationnel."
     });
 
 });
 
-
-/* ============================================================
-   TEST DE SANTÉ
-   ============================================================ */
+// ============================================================
+// ROUTE DE SANTÉ
+// ============================================================
 
 app.get("/sante", (req, res) => {
 
     res.json({
-
         success: true,
-
-        message:
-            "Le serveur CIFON fonctionne correctement."
-
+        serveur: NOM_SERVEUR,
+        version: VERSION,
+        statut: "OK"
     });
 
 });
 
+// ============================================================
+// TEST SIMPLE DE GÉNÉRATION
+// ============================================================
 
-/* ============================================================
-   RÉCUPÉRATION ET NETTOYAGE DE LA CLÉ API
-   ============================================================ */
+app.get("/test-generation", async (req, res) => {
 
-function obtenirCleApi() {
+    try {
 
-    const cle =
-        process.env.OPENAI_API_KEY || "";
+        const apiKey =
+            (process.env.OPENAI_API_KEY || "").trim();
 
-    /*
-     * Supprime les espaces et retours à la ligne
-     * éventuellement présents dans la variable Render.
-     */
+        if (!apiKey) {
 
-    return cle.replace(/\s/g, "");
-
-}
-
-
-/* ============================================================
-   EXTRACTION DU TEXTE DE LA RÉPONSE OPENAI
-   ============================================================ */
-
-function extraireTexteReponse(data) {
-
-    if (!data) {
-        return "";
-    }
-
-
-    /*
-     * Méthode 1 :
-     * Certaines réponses peuvent contenir output_text.
-     */
-
-    if (
-        typeof data.output_text === "string" &&
-        data.output_text.trim().length > 0
-    ) {
-
-        return data.output_text.trim();
-
-    }
-
-
-    /*
-     * Méthode 2 :
-     * Lecture de data.output
-     */
-
-    if (!Array.isArray(data.output)) {
-
-        return "";
-
-    }
-
-
-    let texte = "";
-
-
-    for (const element of data.output) {
-
-        if (
-            !element ||
-            !Array.isArray(element.content)
-        ) {
-
-            continue;
+            return res.status(500).json({
+                success: false,
+                erreur:
+                    "OPENAI_API_KEY n'est pas configurée."
+            });
 
         }
 
+        const instructions = `
+Tu es un expert en pédagogie scolaire.
 
-        for (const contenu of element.content) {
+Tu dois produire une mini-leçon destinée à des élèves
+de 6e au Niger.
 
-            if (
-                contenu &&
-                contenu.type === "output_text" &&
-                typeof contenu.text === "string"
-            ) {
+Retourne uniquement un objet JSON correspondant
+exactement à la structure demandée.
 
-                texte += contenu.text;
+Le contenu doit être clair, correct et directement
+utilisable par un enseignant.
 
-            }
+N'utilise pas de Markdown.
+N'utilise pas de LaTeX.
+N'utilise pas de symboles comme \\frac, \\[ ou \\].
+Les fractions doivent être écrites sous forme simple :
+3/2, 8/10, etc.
 
-        }
+Le contenu doit être en français.
+`;
 
-    }
+        const input = `
+Classe : 6e
+Matière : Mathématiques
+Thème : Géométrie
+Leçon : Le cube et le pavé droit
+Contenu officiel : reconnaître les faces, les arêtes
+et les sommets du cube et du pavé droit.
+Durée : 55 minutes.
+`;
 
-
-    return texte.trim();
-
-}
-
-
-/* ============================================================
-   APPEL CENTRAL À OPENAI
-   ============================================================ */
-
-async function appelerOpenAI(requete) {
-
-    const cleApi = obtenirCleApi();
-
-
-    /*
-     * Vérification de la clé
-     */
-
-    if (!cleApi) {
-
-        throw new Error(
-            "OPENAI_API_KEY n'est pas configurée sur Render."
+        const reponse = await appelerOpenAI(
+            apiKey,
+            instructions,
+            input
         );
 
-    }
+        return res.json({
+            success: true,
+            message:
+                "La connexion CIFON → Render → OpenAI fonctionne.",
+            cours: reponse,
+            serveur: NOM_SERVEUR,
+            version: VERSION
+        });
 
-
-    /*
-     * Vérification supplémentaire :
-     * une clé API ne doit pas contenir d'espace.
-     */
-
-    if (/\s/.test(cleApi)) {
-
-        throw new Error(
-            "OPENAI_API_KEY contient encore des caractères invalides."
-        );
-
-    }
-
-
-    /*
-     * Appel de l'API Responses
-     */
-
-    const reponseOpenAI = await fetch(
-
-        "https://api.openai.com/v1/responses",
-
-        {
-
-            method: "POST",
-
-            headers: {
-
-                "Content-Type":
-                    "application/json",
-
-                "Authorization":
-                    "Bearer " + cleApi
-
-            },
-
-
-            body: JSON.stringify({
-
-                model: "gpt-6-luna",
-
-
-                input: [
-
-                    {
-
-                        role: "system",
-
-                        content: [
-
-                            {
-
-                                type:
-                                    "input_text",
-
-                                text:
-
-                                    "Tu es le moteur pédagogique " +
-                                    "de CIFON PÉDAGOGIE NIGER. " +
-
-                                    "Tu dois préparer des cours " +
-                                    "et fiches pédagogiques complets, " +
-                                    "précis et directement utilisables " +
-                                    "par un enseignant. " +
-
-                                    "Tu dois respecter strictement " +
-                                    "la classe, la matière, le thème, " +
-                                    "le chapitre, le contenu et " +
-                                    "les objectifs fournis. " +
-
-                                    "Tu ne dois jamais produire " +
-                                    "un cours générique lorsque " +
-                                    "des informations précises " +
-                                    "sont fournies. " +
-
-                                    "Les activités, exemples, exercices, " +
-                                    "corrections et évaluations doivent " +
-                                    "correspondre exactement à la notion " +
-                                    "demandée. " +
-
-                                    "Tu dois adapter le niveau de difficulté " +
-                                    "à la classe. " +
-
-                                    "Tu dois répondre en français " +
-                                    "sauf indication contraire."
-
-                            }
-
-                        ]
-
-                    },
-
-
-                    {
-
-                        role: "user",
-
-                        content: [
-
-                            {
-
-                                type:
-                                    "input_text",
-
-                                text:
-                                    requete
-
-                            }
-
-                        ]
-
-                    }
-
-                ]
-
-            })
-
-        }
-
-    );
-
-
-    /*
-     * Lecture de la réponse
-     */
-
-    const donnees =
-        await reponseOpenAI.json();
-
-
-    /*
-     * Gestion des erreurs OpenAI
-     */
-
-    if (!reponseOpenAI.ok) {
+    } catch (erreur) {
 
         console.error(
-            "Erreur OpenAI :",
-            JSON.stringify(donnees)
+            "ERREUR TEST GENERATION :",
+            erreur
         );
 
-
-        const messageErreur =
-            donnees?.error?.message ||
-            "Erreur lors de l'appel à OpenAI.";
-
-
-        throw new Error(
-            messageErreur
-        );
+        return res.status(500).json({
+            success: false,
+            erreur:
+                obtenirMessageErreur(erreur)
+        });
 
     }
 
+});
 
-    /*
-     * Extraction du texte
-     */
-
-    const texte =
-        extraireTexteReponse(donnees);
-
-
-    if (!texte) {
-
-        throw new Error(
-            "OpenAI a répondu mais aucun texte n'a été trouvé."
-        );
-
-    }
-
-
-    return texte;
-
-}
-
-
-/* ============================================================
-   GÉNÉRATION D'UN COURS
-   ============================================================ */
+// ============================================================
+// GÉNÉRATION D'UN COURS
+// ============================================================
 
 app.post("/generer-cours", async (req, res) => {
 
     try {
 
+        const apiKey =
+            (process.env.OPENAI_API_KEY || "").trim();
 
-        /*
-         * Récupération de la requête envoyée
-         * par l'application Android.
-         */
+        if (!apiKey) {
 
-        const requete =
-            req.body?.requete;
-
-
-        /*
-         * Vérification
-         */
-
-        if (
-            typeof requete !== "string" ||
-            requete.trim().length === 0
-        ) {
-
-            return res.status(400).json({
-
+            return res.status(500).json({
                 success: false,
-
                 erreur:
-                    "La requête de génération est vide."
-
+                    "OPENAI_API_KEY n'est pas configurée."
             });
 
         }
 
+        const requete =
+            req.body &&
+            typeof req.body.requete === "string"
+                ? req.body.requete.trim()
+                : "";
 
-        /*
-         * Appel OpenAI
-         */
+        if (!requete) {
+
+            return res.status(400).json({
+                success: false,
+                erreur:
+                    "La requête de génération est vide."
+            });
+
+        }
+
+        console.log(
+            "================================================"
+        );
+
+        console.log(
+            "NOUVELLE DEMANDE DE GÉNÉRATION"
+        );
+
+        console.log(
+            requete
+        );
+
+        console.log(
+            "================================================"
+        );
+
+        // ----------------------------------------------------
+        // INSTRUCTIONS EXPERTES
+        // ----------------------------------------------------
+
+        const instructions = `
+Tu es CIFON PÉDAGOGIE NIGER,
+un assistant expert en sciences de l'éducation,
+en didactique et en préparation de cours scolaires.
+
+Ta mission est de transformer les informations
+du programme officiel fournies par l'application
+en une fiche pédagogique de haute qualité.
+
+==================================================
+RÈGLE FONDAMENTALE
+==================================================
+
+Le contenu officiel fourni par l'application
+est la référence principale.
+
+Tu ne dois pas inventer un nouveau contenu
+qui s'éloigne du programme.
+
+Tu peux organiser, expliquer, illustrer et
+pédagogiser le contenu fourni.
+
+Tu dois respecter :
+
+- le niveau ;
+- la classe ;
+- la série lorsqu'elle existe ;
+- la matière ;
+- le thème ;
+- le chapitre ;
+- le contenu officiel ;
+- les objectifs spécifiques ;
+- la durée de la séance.
+
+==================================================
+QUALITÉ PÉDAGOGIQUE
+==================================================
+
+Le cours doit être conçu comme une véritable
+préparation de séance destinée à un enseignant.
+
+Les objectifs doivent être observables et évaluables.
+
+La situation-problème doit être liée à la leçon.
+
+L'activité doit permettre aux élèves de chercher,
+raisonner, manipuler, observer, produire ou expliquer
+selon la matière.
+
+L'enseignant doit accompagner les élèves sans donner
+immédiatement la réponse lorsque la démarche
+de découverte est appropriée.
+
+La mise en commun doit permettre de comparer
+les productions.
+
+L'institutionnalisation doit faire apparaître
+clairement la connaissance ou la règle à retenir.
+
+Les exercices doivent être cohérents avec
+ce qui a été enseigné.
+
+Les corrections doivent expliquer la démarche
+et pas seulement donner la réponse.
+
+L'évaluation doit mesurer les objectifs annoncés.
+
+Le devoir doit prolonger raisonnablement
+l'apprentissage.
+
+==================================================
+ADAPTATION AU NIVEAU
+==================================================
+
+Le vocabulaire doit être adapté à l'âge des élèves.
+
+Les exemples doivent être compréhensibles
+dans le contexte scolaire nigérien lorsque cela
+est pertinent.
+
+Évite les formulations artificielles ou trop
+universitaires destinées aux élèves.
+
+==================================================
+MATHÉMATIQUES
+==================================================
+
+Pour les mathématiques :
+
+- les calculs doivent être vérifiés ;
+- les résultats doivent être exacts ;
+- les étapes de résolution doivent être explicites ;
+- les fractions doivent être écrites sous forme simple,
+  par exemple 3/2 ou 15/10 ;
+- ne produis jamais de LaTeX ;
+- ne produis jamais \\frac ;
+- ne produis jamais \\[ ou \\] ;
+- n'utilise pas de Markdown pour les formules.
+
+Exemple :
+
+Correct :
+1,5 = 15/10 = 3/2
+
+Incorrect :
+\\[
+1,5 = \\frac{15}{10} = \\frac{3}{2}
+\\]
+
+==================================================
+FORMAT DE LA FICHE
+==================================================
+
+Tu dois produire exactement les parties suivantes :
+
+1. Prérequis / rappel
+2. Objectif général
+3. Objectifs spécifiques
+4. Situation-problème
+5. Activité d'apprentissage
+6. Déroulement de la séance
+7. Trace écrite / résumé
+8. Exercices d'application
+9. Correction des exercices
+10. Évaluation et devoir
+
+==================================================
+DÉROULEMENT
+==================================================
+
+Le déroulement doit comporter plusieurs étapes.
+
+Chaque étape doit préciser :
+
+- étape ;
+- durée ;
+- activités de l'enseignant ;
+- activités des élèves.
+
+La somme des durées doit correspondre
+à la durée totale demandée.
+
+==================================================
+EXERCICES
+==================================================
+
+Lorsque cela est pertinent, proposer des exercices
+de difficulté progressive :
+
+- application directe ;
+- application ;
+- consolidation ;
+- raisonnement ou problème.
+
+Les exercices doivent être adaptés au niveau.
+
+==================================================
+CORRECTIONS
+==================================================
+
+Chaque correction doit expliquer la démarche.
+
+Ne donne pas seulement :
+
+Réponse : 4/5
+
+Mais explique :
+
+0,8 possède un chiffre après la virgule.
+On utilise donc 10 comme dénominateur.
+0,8 = 8/10.
+On simplifie par 2.
+8/10 = 4/5.
+
+Réponse : 4/5.
+
+==================================================
+ÉVALUATION
+==================================================
+
+L'évaluation doit être indépendante des exemples
+utilisés pendant l'apprentissage tout en vérifiant
+les mêmes objectifs.
+
+==================================================
+STYLE
+==================================================
+
+Le français doit être correct, simple et professionnel.
+
+Ne commence pas par une introduction inutile.
+
+Ne termine pas par une phrase du type :
+"J'espère que ce cours vous aidera."
+
+==================================================
+SORTIE OBLIGATOIRE
+==================================================
+
+Retourne uniquement les données correspondant
+au schéma JSON demandé.
+
+Aucun texte avant le JSON.
+Aucun texte après le JSON.
+`;
+
+        // ----------------------------------------------------
+        // APPEL OPENAI
+        // ----------------------------------------------------
 
         const cours =
             await appelerOpenAI(
-                requete.trim()
+                apiKey,
+                instructions,
+                requete
             );
 
+        console.log(
+            "GÉNÉRATION TERMINÉE AVEC SUCCÈS."
+        );
 
-        /*
-         * Réponse au téléphone
-         */
+        // ----------------------------------------------------
+        // RÉPONSE AU TÉLÉPHONE ANDROID
+        // ----------------------------------------------------
 
         return res.json({
 
@@ -434,31 +435,40 @@ app.post("/generer-cours", async (req, res) => {
 
             cours: cours,
 
-            serveur:
-                "CIFON PÉDAGOGIE NIGER",
+            serveur: NOM_SERVEUR,
 
-            version:
-                "1.0.0"
+            version: VERSION
 
         });
 
-
     } catch (erreur) {
 
+        console.error(
+            "================================================"
+        );
 
         console.error(
-            "Erreur /generer-cours :",
+            "ERREUR GÉNÉRATION :"
+        );
+
+        console.error(
             erreur
         );
 
+        console.error(
+            "================================================"
+        );
 
         return res.status(500).json({
 
             success: false,
 
             erreur:
-                erreur.message ||
-                "Une erreur interne est survenue."
+                obtenirMessageErreur(erreur),
+
+            serveur: NOM_SERVEUR,
+
+            version: VERSION
 
         });
 
@@ -466,246 +476,628 @@ app.post("/generer-cours", async (req, res) => {
 
 });
 
+// ============================================================
+// FONCTION APPEL OPENAI
+// ============================================================
 
-/* ============================================================
-   TEST SIMPLE DE GÉNÉRATION
-   ============================================================ */
+async function appelerOpenAI(
+    apiKey,
+    instructions,
+    input
+) {
 
-app.get("/test-generation", async (req, res) => {
+    const schema =
+        construireSchemaFichePedagogique();
+
+    const corps = {
+
+        model: MODELE_OPENAI,
+
+        instructions: instructions,
+
+        input: input,
+
+        text: {
+
+            format: {
+
+                type: "json_schema",
+
+                name: "fiche_pedagogique_cifon",
+
+                strict: true,
+
+                schema: schema
+
+            }
+
+        }
+
+    };
+
+    const reponse =
+        await fetch(
+            OPENAI_API_URL,
+            {
+
+                method: "POST",
+
+                headers: {
+
+                    "Content-Type":
+                        "application/json",
+
+                    "Authorization":
+                        "Bearer " + apiKey
+
+                },
+
+                body:
+                    JSON.stringify(corps)
+
+            }
+        );
+
+    const texte =
+        await reponse.text();
+
+    let donnees;
 
     try {
 
+        donnees =
+            JSON.parse(texte);
 
-        /*
-         * Vérification de la clé avant l'appel.
-         */
+    } catch (e) {
 
-        const apiKey =
-            obtenirCleApi();
-
-
-        if (!apiKey) {
-
-            return res.status(500).json({
-
-                success: false,
-
-                erreur:
-                    "OPENAI_API_KEY n'est pas configurée."
-
-            });
-
-        }
-
-
-        /*
-         * Petit test indépendant.
-         */
-
-        const reponse =
-            await fetch(
-
-                "https://api.openai.com/v1/responses",
-
-                {
-
-                    method: "POST",
-
-                    headers: {
-
-                        "Content-Type":
-                            "application/json",
-
-                        "Authorization":
-                            "Bearer " + apiKey
-
-                    },
-
-
-                    body: JSON.stringify({
-
-                        model:
-                            "gpt-6-luna",
-
-
-                        input: [
-
-                            {
-
-                                role:
-                                    "system",
-
-                                content: [
-
-                                    {
-
-                                        type:
-                                            "input_text",
-
-                                        text:
-                                            "Tu es le moteur pédagogique " +
-                                            "de CIFON PÉDAGOGIE NIGER."
-
-                                    }
-
-                                ]
-
-                            },
-
-
-                            {
-
-                                role:
-                                    "user",
-
-                                content: [
-
-                                    {
-
-                                        type:
-                                            "input_text",
-
-                                        text:
-                                            "Prépare un très court exemple " +
-                                            "de cours de mathématiques pour " +
-                                            "une classe de 6e sur le cube " +
-                                            "et le pavé droit."
-
-                                    }
-
-                                ]
-
-                            }
-
-                        ]
-
-                    })
-
-                }
-
-            );
-
-
-        /*
-         * Lecture de la réponse OpenAI
-         */
-
-        const data =
-            await reponse.json();
-
-
-        /*
-         * Si OpenAI retourne une erreur
-         */
-
-        if (!reponse.ok) {
-
-            console.error(
-                "Erreur test OpenAI :",
-                JSON.stringify(data)
-            );
-
-
-            return res.status(
-                reponse.status
-            ).json({
-
-                success: false,
-
-                erreur: data
-
-            });
-
-        }
-
-
-        /*
-         * Extraction du texte
-         */
-
-        const texte =
-            extraireTexteReponse(
-                data
-            );
-
-
-        /*
-         * Vérification
-         */
-
-        if (!texte) {
-
-            return res.status(500).json({
-
-                success: false,
-
-                erreur:
-                    "OpenAI a répondu mais aucun texte n'a été retourné."
-
-            });
-
-        }
-
-
-        /*
-         * Test réussi
-         */
-
-        return res.json({
-
-            success: true,
-
-            message:
-                "La connexion CIFON → Render → OpenAI fonctionne.",
-
-            cours:
-                texte,
-
-            serveur:
-                "CIFON PÉDAGOGIE NIGER",
-
-            version:
-                "1.0.0"
-
-        });
-
-
-    } catch (erreur) {
-
-
-        console.error(
-            "Erreur test-generation :",
-            erreur
+        throw new Error(
+            "Réponse OpenAI non valide : " +
+            texte.substring(0, 1000)
         );
-
-
-        return res.status(500).json({
-
-            success: false,
-
-            erreur:
-                erreur.message ||
-                "Erreur interne du serveur."
-
-        });
 
     }
 
-});
+    if (!reponse.ok) {
 
+        console.error(
+            "Réponse API OpenAI :",
+            donnees
+        );
 
-/* ============================================================
-   DÉMARRAGE DU SERVEUR
-   ============================================================ */
+        const message =
+            donnees &&
+            donnees.error &&
+            donnees.error.message
+                ? donnees.error.message
+                : "Erreur inconnue de l'API OpenAI.";
+
+        throw new Error(
+            "OpenAI : " + message
+        );
+
+    }
+
+    // --------------------------------------------------------
+    // EXTRACTION DE LA SORTIE
+    // --------------------------------------------------------
+
+    let contenu = "";
+
+    if (
+        donnees &&
+        typeof donnees.output_text === "string"
+    ) {
+
+        contenu =
+            donnees.output_text.trim();
+
+    }
+
+    // --------------------------------------------------------
+    // COMPATIBILITÉ AVEC LA STRUCTURE OUTPUT
+    // --------------------------------------------------------
+
+    if (!contenu && Array.isArray(donnees.output)) {
+
+        for (
+            const element
+            of donnees.output
+        ) {
+
+            if (
+                !element ||
+                !Array.isArray(element.content)
+            ) {
+                continue;
+            }
+
+            for (
+                const partie
+                of element.content
+            ) {
+
+                if (
+                    partie &&
+                    typeof partie.text === "string"
+                ) {
+
+                    contenu +=
+                        partie.text;
+
+                }
+
+            }
+
+        }
+
+        contenu =
+            contenu.trim();
+
+    }
+
+    if (!contenu) {
+
+        throw new Error(
+            "OpenAI a répondu, mais aucun contenu n'a été reçu."
+        );
+
+    }
+
+    // --------------------------------------------------------
+    // TRANSFORMATION JSON
+    // --------------------------------------------------------
+
+    let objet;
+
+    try {
+
+        objet =
+            JSON.parse(contenu);
+
+    } catch (e) {
+
+        console.error(
+            "Contenu reçu non JSON :",
+            contenu
+        );
+
+        throw new Error(
+            "L'IA a retourné un format inattendu. " +
+            "Le cours n'a pas pu être structuré."
+        );
+
+    }
+
+    return objet;
+
+}
+
+// ============================================================
+// SCHÉMA DE LA FICHE PÉDAGOGIQUE
+// ============================================================
+
+function construireSchemaFichePedagogique() {
+
+    return {
+
+        type: "object",
+
+        additionalProperties: false,
+
+        properties: {
+
+            prerequis: {
+
+                type: "string"
+
+            },
+
+            objectif_general: {
+
+                type: "string"
+
+            },
+
+            objectifs_specifiques: {
+
+                type: "array",
+
+                items: {
+
+                    type: "string"
+
+                }
+
+            },
+
+            situation_probleme: {
+
+                type: "object",
+
+                additionalProperties: false,
+
+                properties: {
+
+                    contexte: {
+                        type: "string"
+                    },
+
+                    consigne: {
+                        type: "string"
+                    },
+
+                    question_centrale: {
+                        type: "string"
+                    },
+
+                    production_attendue: {
+                        type: "string"
+                    }
+
+                },
+
+                required: [
+
+                    "contexte",
+                    "consigne",
+                    "question_centrale",
+                    "production_attendue"
+
+                ]
+
+            },
+
+            activite_apprentissage: {
+
+                type: "object",
+
+                additionalProperties: false,
+
+                properties: {
+
+                    titre: {
+                        type: "string"
+                    },
+
+                    organisation: {
+                        type: "string"
+                    },
+
+                    consigne: {
+                        type: "string"
+                    },
+
+                    etapes: {
+
+                        type: "array",
+
+                        items: {
+
+                            type: "object",
+
+                            additionalProperties: false,
+
+                            properties: {
+
+                                etape: {
+                                    type: "string"
+                                },
+
+                                enseignant: {
+                                    type: "string"
+                                },
+
+                                eleves: {
+                                    type: "string"
+                                }
+
+                            },
+
+                            required: [
+
+                                "etape",
+                                "enseignant",
+                                "eleves"
+
+                            ]
+
+                        }
+
+                    },
+
+                    mise_en_commun: {
+                        type: "string"
+                    },
+
+                    institutionnalisation: {
+                        type: "string"
+                    }
+
+                },
+
+                required: [
+
+                    "titre",
+                    "organisation",
+                    "consigne",
+                    "etapes",
+                    "mise_en_commun",
+                    "institutionnalisation"
+
+                ]
+
+            },
+
+            deroulement: {
+
+                type: "array",
+
+                items: {
+
+                    type: "object",
+
+                    additionalProperties: false,
+
+                    properties: {
+
+                        etape: {
+                            type: "string"
+                        },
+
+                        duree_minutes: {
+                            type: "integer"
+                        },
+
+                        activite_enseignant: {
+                            type: "string"
+                        },
+
+                        activite_eleves: {
+                            type: "string"
+                        }
+
+                    },
+
+                    required: [
+
+                        "etape",
+                        "duree_minutes",
+                        "activite_enseignant",
+                        "activite_eleves"
+
+                    ]
+
+                }
+
+            },
+
+            trace_ecrite: {
+
+                type: "string"
+
+            },
+
+            exercices: {
+
+                type: "array",
+
+                items: {
+
+                    type: "object",
+
+                    additionalProperties: false,
+
+                    properties: {
+
+                        numero: {
+                            type: "integer"
+                        },
+
+                        niveau: {
+                            type: "string"
+                        },
+
+                        enonce: {
+                            type: "string"
+                        }
+
+                    },
+
+                    required: [
+
+                        "numero",
+                        "niveau",
+                        "enonce"
+
+                    ]
+
+                }
+
+            },
+
+            corrections: {
+
+                type: "array",
+
+                items: {
+
+                    type: "object",
+
+                    additionalProperties: false,
+
+                    properties: {
+
+                        numero: {
+                            type: "integer"
+                        },
+
+                        demarche: {
+                            type: "string"
+                        },
+
+                        reponse: {
+                            type: "string"
+                        }
+
+                    },
+
+                    required: [
+
+                        "numero",
+                        "demarche",
+                        "reponse"
+
+                    ]
+
+                }
+
+            },
+
+            evaluation: {
+
+                type: "object",
+
+                additionalProperties: false,
+
+                properties: {
+
+                    consigne: {
+                        type: "string"
+                    },
+
+                    exercices: {
+
+                        type: "array",
+
+                        items: {
+
+                            type: "string"
+
+                        }
+
+                    },
+
+                    bareme: {
+                        type: "string"
+                    }
+
+                },
+
+                required: [
+
+                    "consigne",
+                    "exercices",
+                    "bareme"
+
+                ]
+
+            },
+
+            devoir: {
+
+                type: "object",
+
+                additionalProperties: false,
+
+                properties: {
+
+                    consigne: {
+                        type: "string"
+                    },
+
+                    objectifs: {
+                        type: "string"
+                    }
+
+                },
+
+                required: [
+
+                    "consigne",
+                    "objectifs"
+
+                ]
+
+            }
+
+        },
+
+        required: [
+
+            "prerequis",
+            "objectif_general",
+            "objectifs_specifiques",
+            "situation_probleme",
+            "activite_apprentissage",
+            "deroulement",
+            "trace_ecrite",
+            "exercices",
+            "corrections",
+            "evaluation",
+            "devoir"
+
+        ]
+
+    };
+
+}
+
+// ============================================================
+// GESTION DES ERREURS
+// ============================================================
+
+function obtenirMessageErreur(erreur) {
+
+    if (!erreur) {
+
+        return "Erreur inconnue.";
+
+    }
+
+    if (
+        typeof erreur.message === "string" &&
+        erreur.message.trim()
+    ) {
+
+        return erreur.message.trim();
+
+    }
+
+    return String(erreur);
+
+}
+
+// ============================================================
+// DÉMARRAGE DU SERVEUR
+// ============================================================
 
 app.listen(
     PORT,
+    "0.0.0.0",
     () => {
 
         console.log(
-            "Serveur CIFON PÉDAGOGIE NIGER " +
-            "démarré sur le port " +
-            PORT
+            "================================================"
+        );
+
+        console.log(
+            NOM_SERVEUR
+        );
+
+        console.log(
+            "Version : " + VERSION
+        );
+
+        console.log(
+            "Port : " + PORT
+        );
+
+        console.log(
+            "Modèle : " + MODELE_OPENAI
+        );
+
+        console.log(
+            "================================================"
         );
 
     }
