@@ -1,23 +1,21 @@
-
 const express = require("express");
 
 const app = express();
 
 const PORT = process.env.PORT || 3000;
 
-// ============================================================
-// CIFON PÉDAGOGIE NIGER
-// SERVEUR DE GÉNÉRATION DE COURS
-// ============================================================
-
-// Autoriser les requêtes JSON
 app.use(express.json({ limit: "1mb" }));
 
-// Autoriser temporairement les requêtes provenant de l'application
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.header(
+        "Access-Control-Allow-Headers",
+        "Origin, X-Requested-With, Content-Type, Accept"
+    );
+    res.header(
+        "Access-Control-Allow-Methods",
+        "GET, POST, OPTIONS"
+    );
 
     if (req.method === "OPTIONS") {
         return res.sendStatus(200);
@@ -27,39 +25,35 @@ app.use((req, res, next) => {
 });
 
 
-// ============================================================
-// PAGE D'ACCUEIL / TEST DU SERVEUR
-// ============================================================
+/* ============================================================
+   ACCUEIL DU SERVEUR
+   ============================================================ */
 
 app.get("/", (req, res) => {
-
     res.json({
         nom: "CIFON PÉDAGOGIE NIGER",
         serveur: "Serveur de génération de cours",
         statut: "fonctionnel",
         version: "1.0.0"
     });
-
 });
 
 
-// ============================================================
-// TEST DE SANTÉ DU SERVEUR
-// ============================================================
+/* ============================================================
+   TEST DE SANTÉ
+   ============================================================ */
 
 app.get("/sante", (req, res) => {
-
     res.json({
         success: true,
         message: "Le serveur CIFON fonctionne correctement."
     });
-
 });
 
 
-// ============================================================
-// EXTRACTION DU TEXTE DE LA RESPONSES API
-// ============================================================
+/* ============================================================
+   EXTRACTION DU TEXTE DE LA RÉPONSE OPENAI
+   ============================================================ */
 
 function extraireTexteReponse(data) {
 
@@ -84,28 +78,27 @@ function extraireTexteReponse(data) {
             ) {
                 texte += contenu.text;
             }
-
         }
-
     }
 
     return texte.trim();
 }
 
 
-// ============================================================
-// GÉNÉRATION D'UN COURS
-// ============================================================
+/* ============================================================
+   GÉNÉRATION D'UN COURS
+   ============================================================ */
 
 app.post("/generer-cours", async (req, res) => {
 
     try {
 
-        // --------------------------------------------------------
-        // Récupération de la requête envoyée par l'application
-        // --------------------------------------------------------
-
         const requete = req.body?.requete;
+
+
+        /* ----------------------------------------------------
+           Vérification de la requête
+           ---------------------------------------------------- */
 
         if (
             typeof requete !== "string" ||
@@ -116,32 +109,29 @@ app.post("/generer-cours", async (req, res) => {
                 success: false,
                 erreur: "La requête de génération est vide."
             });
-
         }
 
 
-        // --------------------------------------------------------
-        // La clé API doit être stockée dans les variables
-        // d'environnement du serveur.
-        //
-        // NE JAMAIS mettre la clé API ici.
-        // --------------------------------------------------------
+        /* ----------------------------------------------------
+           Récupération de la clé API
+           ---------------------------------------------------- */
 
         const cleApi = process.env.OPENAI_API_KEY;
+
 
         if (!cleApi) {
 
             return res.status(500).json({
                 success: false,
-                erreur: "La clé OPENAI_API_KEY n'est pas configurée sur le serveur."
+                erreur:
+                    "La clé OPENAI_API_KEY n'est pas configurée sur le serveur."
             });
-
         }
 
 
-        // --------------------------------------------------------
-        // Appel de l'API OpenAI Responses
-        // --------------------------------------------------------
+        /* ----------------------------------------------------
+           Appel de l'API OpenAI Responses
+           ---------------------------------------------------- */
 
         const reponseOpenAI = await fetch(
             "https://api.openai.com/v1/responses",
@@ -155,9 +145,10 @@ app.post("/generer-cours", async (req, res) => {
 
                 body: JSON.stringify({
 
-                    model: "gpt-5.6-luna",
+                    model: "gpt-6-luna",
 
                     input: [
+
                         {
                             role: "system",
 
@@ -167,15 +158,25 @@ app.post("/generer-cours", async (req, res) => {
 
                                     text:
                                         "Tu es le moteur pédagogique de CIFON PÉDAGOGIE NIGER. " +
-                                        "Tu dois préparer une fiche pédagogique complète, précise et directement utilisable par un enseignant. " +
-                                        "Tu dois respecter strictement la classe, la matière, le thème, le chapitre, le contenu et les objectifs fournis. " +
-                                        "Tu ne dois pas produire un texte générique. " +
-                                        "Les activités, exemples, exercices, corrections et évaluations doivent correspondre exactement à la notion demandée. " +
+
+                                        "Tu dois préparer une fiche pédagogique complète, " +
+                                        "précise et directement utilisable par un enseignant. " +
+
+                                        "Tu dois respecter strictement la classe, la matière, " +
+                                        "le thème, le chapitre, le contenu et les objectifs fournis. " +
+
+                                        "Tu ne dois jamais produire un cours générique. " +
+
+                                        "Les activités, exemples, exercices, corrections et " +
+                                        "évaluations doivent correspondre exactement à la notion demandée. " +
+
                                         "Tu dois adapter le niveau de difficulté à la classe. " +
+
                                         "Tu dois répondre en français sauf indication contraire."
                                 }
                             ]
                         },
+
 
                         {
                             role: "user",
@@ -183,24 +184,27 @@ app.post("/generer-cours", async (req, res) => {
                             content: [
                                 {
                                     type: "input_text",
-
                                     text: requete
                                 }
                             ]
                         }
+
                     ]
-
                 })
-
             }
         );
 
 
-        // --------------------------------------------------------
-        // Vérification de la réponse OpenAI
-        // --------------------------------------------------------
+        /* ----------------------------------------------------
+           Lecture de la réponse
+           ---------------------------------------------------- */
 
         const donnees = await reponseOpenAI.json();
+
+
+        /* ----------------------------------------------------
+           Gestion des erreurs OpenAI
+           ---------------------------------------------------- */
 
         if (!reponseOpenAI.ok) {
 
@@ -216,15 +220,13 @@ app.post("/generer-cours", async (req, res) => {
                 erreur:
                     donnees?.error?.message ||
                     "Erreur lors de la génération du cours."
-
             });
-
         }
 
 
-        // --------------------------------------------------------
-        // Extraction du cours
-        // --------------------------------------------------------
+        /* ----------------------------------------------------
+           Extraction du cours
+           ---------------------------------------------------- */
 
         const cours = extraireTexteReponse(donnees);
 
@@ -232,16 +234,18 @@ app.post("/generer-cours", async (req, res) => {
         if (!cours) {
 
             return res.status(500).json({
-                success: false,
-                erreur: "L'IA n'a retourné aucun contenu."
-            });
 
+                success: false,
+
+                erreur:
+                    "L'IA n'a retourné aucun contenu."
+            });
         }
 
 
-        // --------------------------------------------------------
-        // Réponse envoyée à l'application Android
-        // --------------------------------------------------------
+        /* ----------------------------------------------------
+           Réponse au téléphone / à l'application Android
+           ---------------------------------------------------- */
 
         return res.json({
 
@@ -252,7 +256,6 @@ app.post("/generer-cours", async (req, res) => {
             serveur: "CIFON PÉDAGOGIE NIGER",
 
             version: "1.0.0"
-
         });
 
 
@@ -269,17 +272,14 @@ app.post("/generer-cours", async (req, res) => {
 
             erreur:
                 "Une erreur interne est survenue sur le serveur."
-
         });
-
     }
-
 });
 
 
-// ============================================================
-// DÉMARRAGE DU SERVEUR
-// ============================================================
+/* ============================================================
+   DÉMARRAGE DU SERVEUR
+   ============================================================ */
 
 app.listen(PORT, () => {
 
