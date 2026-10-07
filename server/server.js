@@ -1,7 +1,7 @@
 // ============================================================
 // CIFON PÉDAGOGIE NIGER
 // SERVEUR DE GÉNÉRATION DE COURS ET D'EXERCICES
-// VERSION 2.2.0
+// VERSION 2.3.0
 // ============================================================
 
 const express = require("express");
@@ -10,7 +10,7 @@ const app = express();
 
 const PORT = process.env.PORT || 3000;
 
-const VERSION = "2.2.0";
+const VERSION = "2.3.0";
 
 const NOM_SERVEUR = "CIFON PÉDAGOGIE NIGER";
 
@@ -184,6 +184,10 @@ app.post("/generer-cours", async (req, res) => {
         );
 
 
+        // Validation du cours avant envoi à Android
+        validerCours(cours);
+
+
         return res.json({
             success: true,
             cours: cours,
@@ -213,6 +217,7 @@ app.post("/generer-cours", async (req, res) => {
 
 // ============================================================
 // GENERATION D'UNE SERIE D'EXERCICES
+// AVEC CORRECTION POUR CHAQUE EXERCICE
 // ============================================================
 
 app.post("/generer-exercices", async (req, res) => {
@@ -265,6 +270,18 @@ app.post("/generer-exercices", async (req, res) => {
                 requete,
                 apiKey
             );
+
+
+        // ====================================================
+        // VALIDATION OBLIGATOIRE
+        // ====================================================
+
+        validerExercices(exercices);
+
+
+        console.log(
+            "Série d'exercices validée avec corrections."
+        );
 
 
         return res.json({
@@ -418,14 +435,6 @@ Dans "activite_eleves", mettre UNIQUEMENT les actions
 des élèves.
 
 Ne jamais mélanger les deux.
-
-Exemple correct :
-
-"activite_enseignant":
-"Présente la situation-problème et pose les questions."
-
-"activite_eleves":
-"Observent la situation et répondent aux questions."
 
 
 ============================================================
@@ -836,7 +845,7 @@ Aucun commentaire avant ou après le JSON.
 
 
 // ============================================================
-// FONCTION OPENAI - EXERCICES
+// FONCTION OPENAI - EXERCICES AVEC CORRECTIONS
 // ============================================================
 
 async function genererExercicesAvecOpenAI(
@@ -883,7 +892,7 @@ Si la difficulté est :
 
 "Facile"
 
-→ exercices accessibles.
+→ exercices accessibles au niveau de la classe.
 
 "Moyen"
 
@@ -891,7 +900,8 @@ Si la difficulté est :
 
 "Difficile"
 
-→ exercices plus exigeants mais adaptés à la classe.
+→ exercices plus exigeants mais toujours adaptés
+au niveau de la classe.
 
 "Progressif"
 
@@ -900,52 +910,107 @@ puis augmenter progressivement la difficulté.
 
 
 ============================================================
-RÈGLES
+RÈGLES DES EXERCICES
 ============================================================
 
 1. Respecte exactement le nombre d'exercices demandé.
 
 2. Chaque exercice doit avoir un numéro.
 
-3. Chaque exercice doit avoir un niveau.
+3. Les numéros doivent être consécutifs :
+   1, 2, 3, 4, 5...
 
-4. Chaque exercice doit avoir un énoncé complet.
+4. Chaque exercice doit avoir un niveau.
 
-5. Ne donne jamais la réponse dans l'énoncé.
+5. Chaque exercice doit avoir un énoncé complet.
 
-6. Ne donne jamais la correction dans l'énoncé.
+6. Ne donne jamais la réponse dans l'énoncé.
 
-7. Les exercices doivent permettre de vérifier
-   les objectifs.
+7. Ne donne jamais la correction dans l'énoncé.
 
-8. Les exercices doivent être adaptés au niveau
+8. Les exercices doivent permettre de vérifier
+   les objectifs fournis.
+
+9. Les exercices doivent être adaptés au niveau
    des élèves.
 
-9. Ne mélange pas inutilement plusieurs chapitres.
+10. Ne mélange pas inutilement plusieurs chapitres.
 
-10. Utilise un français clair.
+11. Utilise un français clair et adapté aux élèves.
 
-11. Pour les fractions, écrire par exemple :
+12. Pour les fractions, écrire par exemple :
     3/4
 
-12. Pour les puissances, écrire par exemple :
+13. Pour les puissances, écrire par exemple :
     x²
 
-13. Pour les racines, écrire par exemple :
+14. Pour les racines, écrire par exemple :
     √25
 
-14. Ne produis pas de Markdown.
+15. Ne produis pas de Markdown.
 
-15. Ne produis pas de code LaTeX.
+16. Ne produis pas de code LaTeX.
 
-16. Retourne uniquement le JSON.
 
-17. Aucun commentaire avant ou après le JSON.
+============================================================
+RÈGLES OBLIGATOIRES DES CORRECTIONS
+============================================================
+
+Chaque exercice DOIT posséder sa propre correction.
+
+La correction doit correspondre exactement
+à l'exercice portant le même numéro.
+
+La correction doit :
+
+- reprendre les données utiles de l'exercice ;
+- expliquer la démarche étape par étape ;
+- montrer les calculs lorsque cela est nécessaire ;
+- donner le résultat final ;
+- utiliser un langage adapté au niveau de la classe ;
+- permettre à l'enseignant de corriger l'élève.
+
+Pour un exercice de mathématiques,
+ne donne pas seulement le résultat final.
+
+Exemple :
+
+Exercice :
+Calculer 3 + 5 × 2.
+
+Correction :
+On effectue d'abord la multiplication :
+5 × 2 = 10.
+Puis on effectue l'addition :
+3 + 10 = 13.
+Donc 3 + 5 × 2 = 13.
+
+La correction ne doit jamais être vide.
+
+
+============================================================
+IMPORTANT
+============================================================
+
+Le champ "correction" doit être présent
+dans CHAQUE objet de la liste "exercices".
+
+Il doit toujours contenir une chaîne de caractères
+non vide.
+
+La correction doit être cohérente avec l'énoncé
+et ne doit jamais correspondre à un autre exercice.
 
 
 ============================================================
 FORMAT
 ============================================================
+
+Retourne uniquement le JSON correspondant au schéma.
+
+Aucun commentaire avant ou après le JSON.
+
+Format attendu :
 
 {
     "titre": "Titre de la série",
@@ -954,7 +1019,8 @@ FORMAT
         {
             "numero": 1,
             "niveau": "Facile",
-            "enonce": "Énoncé de l'exercice"
+            "enonce": "Énoncé de l'exercice",
+            "correction": "Correction détaillée de l'exercice"
         }
     ]
 }
@@ -1004,6 +1070,10 @@ FORMAT
 
                         enonce: {
                             type: "string"
+                        },
+
+                        correction: {
+                            type: "string"
                         }
 
                     },
@@ -1011,7 +1081,8 @@ FORMAT
                     required: [
                         "numero",
                         "niveau",
-                        "enonce"
+                        "enonce",
+                        "correction"
                     ]
 
                 }
@@ -1030,17 +1101,11 @@ FORMAT
 
 
     return await appelerOpenAI(
-
         requete,
-
         apiKey,
-
         instructions,
-
         schema,
-
         "serie_exercices_cifon"
-
     );
 
 }
@@ -1305,6 +1370,78 @@ async function appelerOpenAI(
 
 
 // ============================================================
+// VALIDATION DU COURS
+// ============================================================
+
+function validerCours(
+    cours
+) {
+
+    if (
+        !cours ||
+        typeof cours !== "object"
+    ) {
+
+        throw new Error(
+            "Le cours généré est invalide."
+        );
+
+    }
+
+
+    const champsObligatoires = [
+
+        "prerequis",
+
+        "objectif_general",
+
+        "objectifs_specifiques",
+
+        "situation_probleme",
+
+        "activite_apprentissage",
+
+        "deroulement",
+
+        "trace_ecrite",
+
+        "exercices",
+
+        "corrections",
+
+        "evaluation",
+
+        "devoir"
+
+    ];
+
+
+    for (
+        const champ
+        of champsObligatoires
+    ) {
+
+        if (
+            cours[champ] === undefined ||
+            cours[champ] === null
+        ) {
+
+            throw new Error(
+                "Le champ obligatoire du cours est absent : "
+                + champ
+            );
+
+        }
+
+    }
+
+
+    validerDeroulement(cours);
+
+}
+
+
+// ============================================================
 // VALIDATION DU DÉROULEMENT
 // ============================================================
 
@@ -1416,7 +1553,7 @@ function validerDeroulement(
 
 
 // ============================================================
-// VALIDATION DES EXERCICES
+// VALIDATION DES EXERCICES AVEC CORRECTIONS
 // ============================================================
 
 function validerExercices(
@@ -1425,6 +1562,41 @@ function validerExercices(
 
     if (
         !serie ||
+        typeof serie !== "object"
+    ) {
+
+        throw new Error(
+            "La série d'exercices générée est invalide."
+        );
+
+    }
+
+
+    if (
+        typeof serie.titre !== "string" ||
+        serie.titre.trim() === ""
+    ) {
+
+        throw new Error(
+            "Le titre de la série d'exercices est absent ou vide."
+        );
+
+    }
+
+
+    if (
+        typeof serie.consigne !== "string" ||
+        serie.consigne.trim() === ""
+    ) {
+
+        throw new Error(
+            "La consigne générale des exercices est absente ou vide."
+        );
+
+    }
+
+
+    if (
         !Array.isArray(
             serie.exercices
         )
@@ -1481,7 +1653,22 @@ function validerExercices(
         ) {
 
             throw new Error(
-                "Le niveau d'un exercice est invalide."
+                "Le niveau de l'exercice "
+                + exercice.numero
+                + " est invalide."
+            );
+
+        }
+
+
+        if (
+            exercice.niveau.trim() === ""
+        ) {
+
+            throw new Error(
+                "Le niveau de l'exercice "
+                + exercice.numero
+                + " est vide."
             );
 
         }
@@ -1492,7 +1679,9 @@ function validerExercices(
         ) {
 
             throw new Error(
-                "L'énoncé d'un exercice est invalide."
+                "L'énoncé de l'exercice "
+                + exercice.numero
+                + " est invalide."
             );
 
         }
@@ -1503,7 +1692,73 @@ function validerExercices(
         ) {
 
             throw new Error(
-                "Un exercice possède un énoncé vide."
+                "L'énoncé de l'exercice "
+                + exercice.numero
+                + " est vide."
+            );
+
+        }
+
+
+        // ====================================================
+        // CORRECTION OBLIGATOIRE
+        // ====================================================
+
+        if (
+            typeof exercice.correction !== "string"
+        ) {
+
+            throw new Error(
+                "La correction de l'exercice "
+                + exercice.numero
+                + " est absente."
+            );
+
+        }
+
+
+        if (
+            exercice.correction.trim() === ""
+        ) {
+
+            throw new Error(
+                "La correction de l'exercice "
+                + exercice.numero
+                + " est vide."
+            );
+
+        }
+
+    }
+
+
+    // ========================================================
+    // VÉRIFICATION DES NUMÉROS
+    // ========================================================
+
+    for (
+        let i = 0;
+        i < serie.exercices.length;
+        i++
+    ) {
+
+        const numeroAttendu = i + 1;
+
+        const numeroRecu =
+            serie.exercices[i].numero;
+
+
+        if (
+            numeroRecu !== numeroAttendu
+        ) {
+
+            throw new Error(
+                "Les numéros des exercices doivent être "
+                + "consécutifs. Numéro attendu : "
+                + numeroAttendu
+                + ", numéro reçu : "
+                + numeroRecu
+                + "."
             );
 
         }
