@@ -1,7 +1,7 @@
 // ============================================================
 // CIFON PÉDAGOGIE NIGER
 // SERVEUR DE GÉNÉRATION DE COURS
-// VERSION 2.0.0
+// VERSION 2.1.0
 // ============================================================
 
 const express = require("express");
@@ -10,7 +10,7 @@ const app = express();
 
 const PORT = process.env.PORT || 3000;
 
-const VERSION = "2.0.0";
+const VERSION = "2.1.0";
 
 const NOM_SERVEUR = "CIFON PÉDAGOGIE NIGER";
 
@@ -230,10 +230,13 @@ Tu travailles pour l'application :
 CIFON PÉDAGOGIE NIGER
 
 Ta mission est de produire une fiche pédagogique
-professionnelle, réaliste, directement exploitable par
-un enseignant du Niger.
+professionnelle, réaliste et directement exploitable
+par un enseignant du Niger.
 
-IMPORTANT :
+
+============================================================
+RÈGLES GÉNÉRALES
+============================================================
 
 1. Respecte strictement les informations du programme
    officiel fournies dans la demande.
@@ -244,32 +247,33 @@ IMPORTANT :
 3. Ne crée pas un contenu qui dépasse inutilement le niveau
    de la classe.
 
-4. Les objectifs doivent être observables et évaluables.
+4. Les objectifs officiels fournis par l'application
+   doivent être respectés.
 
-5. Les activités doivent permettre réellement aux élèves
-   de construire les apprentissages.
+5. Ne prétends jamais qu'une information vient du programme
+   officiel si elle n'est pas fournie.
 
 6. La situation-problème doit être adaptée au niveau
    des élèves et liée à la notion étudiée.
 
-7. L'enseignant doit avoir un rôle précis.
+7. Les activités doivent permettre réellement aux élèves
+   de construire les apprentissages.
 
-8. Les élèves doivent avoir des tâches précises.
+8. L'enseignant doit avoir un rôle précis.
 
-9. Le déroulement doit respecter la durée indiquée.
+9. Les élèves doivent avoir des tâches précises.
 
-10. Les exercices doivent être directement liés aux objectifs.
+10. Le déroulement doit respecter la durée indiquée.
 
-11. Les corrections doivent expliquer clairement la démarche.
+11. Les exercices doivent être directement liés aux objectifs.
 
-12. L'évaluation doit vérifier les apprentissages visés.
+12. Les corrections doivent expliquer clairement la démarche.
 
-13. Le devoir doit être cohérent avec la leçon.
+13. L'évaluation doit vérifier les apprentissages visés.
 
-14. Ne jamais inventer une référence officielle.
+14. Le devoir doit être cohérent avec la leçon.
 
-15. Ne jamais prétendre qu'une information vient du
-    programme officiel si elle n'est pas fournie.
+15. Ne jamais inventer une référence officielle.
 
 16. Utilise un français pédagogique clair et correct.
 
@@ -312,12 +316,292 @@ IMPORTANT :
 29. Les corrections doivent être suffisamment détaillées
     pour permettre à l'enseignant de les utiliser.
 
-30. Si une donnée pédagogique importante manque dans la
-    demande, fais une proposition raisonnable adaptée au
-    contexte scolaire nigérien sans modifier les données
-    officielles fournies.
+
+============================================================
+RÈGLE ESSENTIELLE : SÉPARATION DES ACTIVITÉS
+============================================================
+
+Cette règle est OBLIGATOIRE.
+
+Dans chaque élément du tableau "deroulement", il existe
+deux colonnes totalement indépendantes :
+
+A. activite_enseignant
+
+B. activite_eleves
+
+
+============================================================
+ACTIVITE ENSEIGNANT
+============================================================
+
+Le champ "activite_enseignant" doit contenir UNIQUEMENT
+ce que fait l'enseignant.
+
+Il peut notamment contenir :
+
+- présente ;
+- explique ;
+- pose des questions ;
+- donne une consigne ;
+- distribue un document ;
+- montre un matériel ;
+- guide les élèves ;
+- observe le travail ;
+- circule entre les groupes ;
+- corrige ;
+- reformule ;
+- aide ;
+- organise la mise en commun ;
+- valide les réponses ;
+- institutionnalise la notion ;
+- donne un exercice ;
+- évalue.
+
+
+INTERDICTION ABSOLUE :
+
+Ne mets jamais dans "activite_enseignant" une action
+réalisée par les élèves.
+
+Ne pas écrire par exemple :
+
+"L'enseignant demande aux élèves d'observer et les élèves
+observent..."
+
+Ne pas écrire :
+
+"L'enseignant présente la figure. Les élèves répondent
+aux questions."
+
+Dans "activite_enseignant", seule l'action de l'enseignant
+doit apparaître.
+
+
+============================================================
+ACTIVITE ELEVES
+============================================================
+
+Le champ "activite_eleves" doit contenir UNIQUEMENT
+ce que font les élèves.
+
+Il peut notamment contenir :
+
+- observent ;
+- écoutent ;
+- répondent ;
+- lisent ;
+- calculent ;
+- construisent ;
+- manipulent ;
+- recherchent ;
+- discutent ;
+- travaillent individuellement ;
+- travaillent en groupe ;
+- comparent ;
+- justifient ;
+- présentent leurs résultats ;
+- corrigent ;
+- formulent une conclusion ;
+- prennent une trace écrite ;
+- réalisent les exercices ;
+- s'autoévaluent.
+
+
+INTERDICTION ABSOLUE :
+
+Ne mets jamais dans "activite_eleves" une action réalisée
+par l'enseignant.
+
+Ne pas écrire :
+
+"Les élèves observent. L'enseignant explique."
+
+Dans "activite_eleves", seule l'action des élèves
+doit apparaître.
+
+
+============================================================
+RÈGLE DE VÉRIFICATION DU DÉROULEMENT
+============================================================
+
+Avant de produire la réponse finale, vérifie mentalement
+chaque ligne du tableau.
+
+Pour chaque ligne :
+
+1. "activite_enseignant" = uniquement enseignant.
+
+2. "activite_eleves" = uniquement élèves.
+
+3. Il ne doit pas y avoir de mélange entre les deux.
+
+4. Ne répète pas l'activité des élèves dans l'activité
+   de l'enseignant.
+
+5. Ne répète pas l'activité de l'enseignant dans l'activité
+   des élèves.
+
+6. Les deux colonnes doivent être complémentaires.
+
+7. Les activités doivent correspondre à l'étape indiquée.
+
+8. La durée doit être réaliste.
+
+9. La somme des durées doit correspondre à la durée
+   de la séance.
+
+
+============================================================
+FORMAT OBLIGATOIRE DU DÉROULEMENT
+============================================================
+
+Chaque élément de "deroulement" doit obligatoirement
+respecter cette structure :
+
+{
+    "etape": "Nom de l'étape",
+    "duree_minutes": 5,
+    "activite_enseignant": "Action uniquement réalisée par l'enseignant.",
+    "activite_eleves": "Actions uniquement réalisées par les élèves."
+}
+
+
+============================================================
+EXEMPLE CORRECT
+============================================================
+
+{
+    "etape": "Mise en situation",
+    "duree_minutes": 5,
+    "activite_enseignant": "Présente la situation-problème et pose la question centrale.",
+    "activite_eleves": "Observent la situation, identifient le problème et proposent leurs premières réponses."
+}
+
+
+============================================================
+AUTRE EXEMPLE CORRECT
+============================================================
+
+{
+    "etape": "Construction de la notion",
+    "duree_minutes": 15,
+    "activite_enseignant": "Guide les observations, pose des questions et aide les groupes à organiser leurs résultats.",
+    "activite_eleves": "Observent, manipulent, discutent en groupe, réalisent les activités demandées et formulent leurs résultats."
+}
+
+
+============================================================
+EXEMPLE INTERDIT
+============================================================
+
+INTERDIT :
+
+"activite_enseignant":
+"L'enseignant explique la notion et les élèves répondent
+aux questions."
+
+Car cette phrase mélange enseignant et élèves.
+
+
+INTERDIT :
+
+"activite_eleves":
+"Les élèves observent pendant que l'enseignant explique."
+
+Car cette phrase mélange élèves et enseignant.
+
+
+============================================================
+AUTRES ACTIVITÉS
+============================================================
+
+La même règle de séparation doit être respectée dans
+"situation_probleme" et "activite_apprentissage".
+
+Lorsque tu décris une action de l'enseignant, attribue-la
+à l'enseignant.
+
+Lorsque tu décris une action des élèves, attribue-la
+aux élèves.
+
+
+============================================================
+OBSERVATION
+============================================================
+
+Ne génère PAS de champ "observation" dans le JSON.
+
+L'observation sera gérée et modifiée directement par
+l'enseignant dans l'application CIFON.
+
+
+============================================================
+RÉFÉRENCES
+============================================================
+
+Ne crée pas de référence officielle inexistante.
+
+Si aucune référence précise n'est fournie dans la demande,
+ne prétends pas qu'une référence particulière provient
+du programme officiel.
+
+
+============================================================
+OBJECTIFS
+============================================================
+
+Les objectifs fournis par l'application doivent rester
+fidèles aux informations reçues.
+
+Ne mélange jamais :
+
+- contenu officiel ;
+- objectif officiel ;
+- commentaire pédagogique.
+
+Lorsque les objectifs officiels sont fournis, utilise-les
+comme base et ne les remplace pas par des objectifs
+inventés.
+
+
+============================================================
+QUALITÉ PÉDAGOGIQUE
+============================================================
+
+La fiche doit être adaptée :
+
+- au niveau de la classe ;
+- à la matière ;
+- au chapitre ;
+- aux objectifs ;
+- au contexte scolaire nigérien ;
+- à la durée disponible.
+
+Les exercices doivent être progressifs.
+
+Les corrections doivent être exploitables par l'enseignant.
+
+L'évaluation doit être cohérente avec les objectifs.
+
+
+============================================================
+FORMAT DE SORTIE
+============================================================
+
+Retourne UNIQUEMENT le JSON demandé par le schéma.
+
+Aucun commentaire avant le JSON.
+
+Aucun commentaire après le JSON.
+
+Aucun Markdown.
 `;
 
+
+    // ========================================================
+    // SCHÉMA JSON STRICT
+    // ========================================================
 
     const schema = {
 
@@ -328,19 +612,29 @@ IMPORTANT :
         properties: {
 
             prerequis: {
-                type: "string"
+                type: "string",
+                description:
+                    "Prérequis nécessaires pour aborder la leçon."
             },
+
 
             objectif_general: {
-                type: "string"
+                type: "string",
+                description:
+                    "Objectif général de la séance."
             },
 
+
             objectifs_specifiques: {
+
                 type: "array",
+
                 items: {
                     type: "string"
                 }
+
             },
+
 
             situation_probleme: {
 
@@ -376,6 +670,7 @@ IMPORTANT :
                 ]
 
             },
+
 
             activite_apprentissage: {
 
@@ -449,9 +744,17 @@ IMPORTANT :
 
             },
 
+
+            // ==================================================
+            // DÉROULEMENT
+            // ==================================================
+
             deroulement: {
 
                 type: "array",
+
+                description:
+                    "Tableau du déroulement. Chaque activité doit être strictement séparée entre enseignant et élèves.",
 
                 items: {
 
@@ -462,19 +765,40 @@ IMPORTANT :
                     properties: {
 
                         etape: {
-                            type: "string"
+
+                            type: "string",
+
+                            description:
+                                "Nom de l'étape pédagogique."
                         },
+
 
                         duree_minutes: {
-                            type: "integer"
+
+                            type: "integer",
+
+                            description:
+                                "Durée de cette étape en minutes."
                         },
+
 
                         activite_enseignant: {
-                            type: "string"
+
+                            type: "string",
+
+                            description:
+                                "UNIQUEMENT les actions réalisées par l'enseignant. Ne jamais inclure une action réalisée par les élèves."
+
                         },
 
+
                         activite_eleves: {
-                            type: "string"
+
+                            type: "string",
+
+                            description:
+                                "UNIQUEMENT les actions réalisées par les élèves. Ne jamais inclure une action réalisée par l'enseignant."
+
                         }
 
                     },
@@ -490,9 +814,15 @@ IMPORTANT :
 
             },
 
+
             trace_ecrite: {
-                type: "string"
+
+                type: "string",
+
+                description:
+                    "Trace écrite destinée aux élèves."
             },
+
 
             exercices: {
 
@@ -530,6 +860,7 @@ IMPORTANT :
 
             },
 
+
             corrections: {
 
                 type: "array",
@@ -565,6 +896,7 @@ IMPORTANT :
                 }
 
             },
+
 
             evaluation: {
 
@@ -628,6 +960,7 @@ IMPORTANT :
 
             },
 
+
             devoir: {
 
                 type: "object",
@@ -661,6 +994,7 @@ IMPORTANT :
 
         },
 
+
         required: [
             "prerequis",
             "objectif_general",
@@ -678,6 +1012,10 @@ IMPORTANT :
     };
 
 
+    // ========================================================
+    // CORPS DE LA REQUÊTE OPENAI
+    // ========================================================
+
     const corps = {
 
         model: "gpt-6-luna",
@@ -688,7 +1026,7 @@ IMPORTANT :
             "Voici les informations fournies par l'application :\n\n"
             + requete
             + "\n\n"
-            + "Produis maintenant la fiche pédagogique complète.",
+            + "Produis maintenant la fiche pédagogique complète en respectant STRICTEMENT toutes les règles précédentes, notamment la séparation entre activite_enseignant et activite_eleves.",
 
         text: {
 
@@ -713,6 +1051,10 @@ IMPORTANT :
         "Envoi de la demande à OpenAI..."
     );
 
+
+    // ========================================================
+    // APPEL OPENAI
+    // ========================================================
 
     const reponse = await fetch(
         "https://api.openai.com/v1/responses",
@@ -750,10 +1092,12 @@ IMPORTANT :
         let message =
             "Erreur lors de la communication avec OpenAI.";
 
+
         try {
 
             const erreurJSON =
                 JSON.parse(texteReponse);
+
 
             if (
                 erreurJSON &&
@@ -780,10 +1124,15 @@ IMPORTANT :
 
         }
 
+
         throw new Error(message);
 
     }
 
+
+    // ========================================================
+    // LECTURE DE LA RÉPONSE
+    // ========================================================
 
     let donnees;
 
@@ -903,6 +1252,91 @@ IMPORTANT :
     }
 
 
+    // ========================================================
+    // VALIDATION SUPPLÉMENTAIRE DU DÉROULEMENT
+    // ========================================================
+
+    if (
+        !coursStructure ||
+        !Array.isArray(coursStructure.deroulement)
+    ) {
+
+        throw new Error(
+            "Le déroulement pédagogique est absent ou invalide."
+        );
+
+    }
+
+
+    for (
+        const ligne of coursStructure.deroulement
+    ) {
+
+        if (
+            !ligne ||
+            typeof ligne !== "object"
+        ) {
+
+            throw new Error(
+                "Une ligne du déroulement est invalide."
+            );
+
+        }
+
+
+        if (
+            typeof ligne.etape !== "string" ||
+            typeof ligne.activite_enseignant !== "string" ||
+            typeof ligne.activite_eleves !== "string"
+        ) {
+
+            throw new Error(
+                "Chaque ligne du déroulement doit contenir séparément : etape, activite_enseignant et activite_eleves."
+            );
+
+        }
+
+
+        if (
+            typeof ligne.duree_minutes !== "number"
+        ) {
+
+            throw new Error(
+                "La durée d'une étape du déroulement doit être un nombre."
+            );
+
+        }
+
+
+        if (
+            ligne.activite_enseignant.trim() === ""
+        ) {
+
+            throw new Error(
+                "Une activité de l'enseignant est vide."
+            );
+
+        }
+
+
+        if (
+            ligne.activite_eleves.trim() === ""
+        ) {
+
+            throw new Error(
+                "Une activité des élèves est vide."
+            );
+
+        }
+
+    }
+
+
+    console.log(
+        "Cours généré avec déroulement structuré."
+    );
+
+
     return coursStructure;
 
 }
@@ -934,7 +1368,7 @@ function obtenirMessageErreur(erreur) {
 
 
 // ============================================================
-// DEMARRAGE DU SERVEUR
+// DÉMARRAGE DU SERVEUR
 // ============================================================
 
 app.listen(
