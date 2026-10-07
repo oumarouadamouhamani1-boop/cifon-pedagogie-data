@@ -1,7 +1,7 @@
 // ============================================================
 // CIFON PÉDAGOGIE NIGER
-// SERVEUR DE GÉNÉRATION DE COURS
-// VERSION 2.1.0
+// SERVEUR DE GÉNÉRATION DE COURS ET D'EXERCICES
+// VERSION 2.2.0
 // ============================================================
 
 const express = require("express");
@@ -10,7 +10,7 @@ const app = express();
 
 const PORT = process.env.PORT || 3000;
 
-const VERSION = "2.1.0";
+const VERSION = "2.2.0";
 
 const NOM_SERVEUR = "CIFON PÉDAGOGIE NIGER";
 
@@ -174,7 +174,7 @@ app.post("/generer-cours", async (req, res) => {
 
 
         console.log(
-            "Nouvelle demande de génération reçue."
+            "Nouvelle demande de génération de cours reçue."
         );
 
 
@@ -212,7 +212,104 @@ app.post("/generer-cours", async (req, res) => {
 
 
 // ============================================================
-// FONCTION PRINCIPALE OPENAI
+// GENERATION D'UNE SERIE D'EXERCICES
+// ============================================================
+
+app.post("/generer-exercices", async (req, res) => {
+
+    try {
+
+        const apiKey = process.env.OPENAI_API_KEY;
+
+        if (!apiKey || apiKey.trim() === "") {
+
+            return res.status(500).json({
+                success: false,
+                erreur: "OPENAI_API_KEY n'est pas configurée.",
+                serveur: NOM_SERVEUR,
+                version: VERSION
+            });
+
+        }
+
+
+        const requete = req.body
+            ? req.body.requete
+            : null;
+
+
+        if (
+            !requete ||
+            typeof requete !== "string" ||
+            requete.trim() === ""
+        ) {
+
+            return res.status(400).json({
+                success: false,
+                erreur:
+                    "La requête de génération des exercices est obligatoire.",
+                serveur: NOM_SERVEUR,
+                version: VERSION
+            });
+
+        }
+
+
+        console.log(
+            "Nouvelle demande de génération d'exercices reçue."
+        );
+
+
+        const exercices =
+            await genererExercicesAvecOpenAI(
+                requete,
+                apiKey
+            );
+
+
+        return res.json({
+
+            success: true,
+
+            exercices: exercices,
+
+            serveur: NOM_SERVEUR,
+
+            version: VERSION
+
+        });
+
+
+    } catch (erreur) {
+
+        console.error(
+            "ERREUR /generer-exercices :",
+            erreur
+        );
+
+
+        return res.status(500).json({
+
+            success: false,
+
+            erreur:
+                obtenirMessageErreur(erreur),
+
+            serveur:
+                NOM_SERVEUR,
+
+            version:
+                VERSION
+
+        });
+
+    }
+
+});
+
+
+// ============================================================
+// FONCTION PRINCIPALE OPENAI - COURS
 // ============================================================
 
 async function genererAvecOpenAI(
@@ -221,6 +318,7 @@ async function genererAvecOpenAI(
 ) {
 
     const instructions = `
+
 Tu es un expert international en ingénierie pédagogique,
 en didactique des disciplines scolaires et en conception
 de fiches pédagogiques.
@@ -228,10 +326,6 @@ de fiches pédagogiques.
 Tu travailles pour l'application :
 
 CIFON PÉDAGOGIE NIGER
-
-Ta mission est de produire une fiche pédagogique
-professionnelle, réaliste et directement exploitable
-par un enseignant du Niger.
 
 
 ============================================================
@@ -281,11 +375,7 @@ RÈGLES GÉNÉRALES
 
 18. Ne produis pas de Markdown.
 
-19. Ne produis pas de caractères Markdown comme :
-    **
-    #
-    ---
-    | | |
+19. Ne produis pas de caractères Markdown.
 
 20. Ne produis pas de code LaTeX.
 
@@ -318,233 +408,33 @@ RÈGLES GÉNÉRALES
 
 
 ============================================================
-RÈGLE ESSENTIELLE : SÉPARATION DES ACTIVITÉS
+SÉPARATION ENSEIGNANT / ÉLÈVES
 ============================================================
 
-Cette règle est OBLIGATOIRE.
+Dans "activite_enseignant", mettre UNIQUEMENT les actions
+de l'enseignant.
 
-Dans chaque élément du tableau "deroulement", il existe
-deux colonnes totalement indépendantes :
+Dans "activite_eleves", mettre UNIQUEMENT les actions
+des élèves.
 
-A. activite_enseignant
+Ne jamais mélanger les deux.
 
-B. activite_eleves
-
-
-============================================================
-ACTIVITE ENSEIGNANT
-============================================================
-
-Le champ "activite_enseignant" doit contenir UNIQUEMENT
-ce que fait l'enseignant.
-
-Il peut notamment contenir :
-
-- présente ;
-- explique ;
-- pose des questions ;
-- donne une consigne ;
-- distribue un document ;
-- montre un matériel ;
-- guide les élèves ;
-- observe le travail ;
-- circule entre les groupes ;
-- corrige ;
-- reformule ;
-- aide ;
-- organise la mise en commun ;
-- valide les réponses ;
-- institutionnalise la notion ;
-- donne un exercice ;
-- évalue.
-
-
-INTERDICTION ABSOLUE :
-
-Ne mets jamais dans "activite_enseignant" une action
-réalisée par les élèves.
-
-Ne pas écrire par exemple :
-
-"L'enseignant demande aux élèves d'observer et les élèves
-observent..."
-
-Ne pas écrire :
-
-"L'enseignant présente la figure. Les élèves répondent
-aux questions."
-
-Dans "activite_enseignant", seule l'action de l'enseignant
-doit apparaître.
-
-
-============================================================
-ACTIVITE ELEVES
-============================================================
-
-Le champ "activite_eleves" doit contenir UNIQUEMENT
-ce que font les élèves.
-
-Il peut notamment contenir :
-
-- observent ;
-- écoutent ;
-- répondent ;
-- lisent ;
-- calculent ;
-- construisent ;
-- manipulent ;
-- recherchent ;
-- discutent ;
-- travaillent individuellement ;
-- travaillent en groupe ;
-- comparent ;
-- justifient ;
-- présentent leurs résultats ;
-- corrigent ;
-- formulent une conclusion ;
-- prennent une trace écrite ;
-- réalisent les exercices ;
-- s'autoévaluent.
-
-
-INTERDICTION ABSOLUE :
-
-Ne mets jamais dans "activite_eleves" une action réalisée
-par l'enseignant.
-
-Ne pas écrire :
-
-"Les élèves observent. L'enseignant explique."
-
-Dans "activite_eleves", seule l'action des élèves
-doit apparaître.
-
-
-============================================================
-RÈGLE DE VÉRIFICATION DU DÉROULEMENT
-============================================================
-
-Avant de produire la réponse finale, vérifie mentalement
-chaque ligne du tableau.
-
-Pour chaque ligne :
-
-1. "activite_enseignant" = uniquement enseignant.
-
-2. "activite_eleves" = uniquement élèves.
-
-3. Il ne doit pas y avoir de mélange entre les deux.
-
-4. Ne répète pas l'activité des élèves dans l'activité
-   de l'enseignant.
-
-5. Ne répète pas l'activité de l'enseignant dans l'activité
-   des élèves.
-
-6. Les deux colonnes doivent être complémentaires.
-
-7. Les activités doivent correspondre à l'étape indiquée.
-
-8. La durée doit être réaliste.
-
-9. La somme des durées doit correspondre à la durée
-   de la séance.
-
-
-============================================================
-FORMAT OBLIGATOIRE DU DÉROULEMENT
-============================================================
-
-Chaque élément de "deroulement" doit obligatoirement
-respecter cette structure :
-
-{
-    "etape": "Nom de l'étape",
-    "duree_minutes": 5,
-    "activite_enseignant": "Action uniquement réalisée par l'enseignant.",
-    "activite_eleves": "Actions uniquement réalisées par les élèves."
-}
-
-
-============================================================
-EXEMPLE CORRECT
-============================================================
-
-{
-    "etape": "Mise en situation",
-    "duree_minutes": 5,
-    "activite_enseignant": "Présente la situation-problème et pose la question centrale.",
-    "activite_eleves": "Observent la situation, identifient le problème et proposent leurs premières réponses."
-}
-
-
-============================================================
-AUTRE EXEMPLE CORRECT
-============================================================
-
-{
-    "etape": "Construction de la notion",
-    "duree_minutes": 15,
-    "activite_enseignant": "Guide les observations, pose des questions et aide les groupes à organiser leurs résultats.",
-    "activite_eleves": "Observent, manipulent, discutent en groupe, réalisent les activités demandées et formulent leurs résultats."
-}
-
-
-============================================================
-EXEMPLE INTERDIT
-============================================================
-
-INTERDIT :
+Exemple correct :
 
 "activite_enseignant":
-"L'enseignant explique la notion et les élèves répondent
-aux questions."
-
-Car cette phrase mélange enseignant et élèves.
-
-
-INTERDIT :
+"Présente la situation-problème et pose les questions."
 
 "activite_eleves":
-"Les élèves observent pendant que l'enseignant explique."
-
-Car cette phrase mélange élèves et enseignant.
-
-
-============================================================
-AUTRES ACTIVITÉS
-============================================================
-
-La même règle de séparation doit être respectée dans
-"situation_probleme" et "activite_apprentissage".
-
-Lorsque tu décris une action de l'enseignant, attribue-la
-à l'enseignant.
-
-Lorsque tu décris une action des élèves, attribue-la
-aux élèves.
+"Observent la situation et répondent aux questions."
 
 
 ============================================================
 OBSERVATION
 ============================================================
 
-Ne génère PAS de champ "observation" dans le JSON.
+Ne génère PAS de champ "observation".
 
-L'observation sera gérée et modifiée directement par
-l'enseignant dans l'application CIFON.
-
-
-============================================================
-RÉFÉRENCES
-============================================================
-
-Ne crée pas de référence officielle inexistante.
-
-Si aucune référence précise n'est fournie dans la demande,
-ne prétends pas qu'une référence particulière provient
-du programme officiel.
+L'observation est gérée dans l'application.
 
 
 ============================================================
@@ -560,48 +450,17 @@ Ne mélange jamais :
 - objectif officiel ;
 - commentaire pédagogique.
 
-Lorsque les objectifs officiels sont fournis, utilise-les
-comme base et ne les remplace pas par des objectifs
-inventés.
-
 
 ============================================================
-QUALITÉ PÉDAGOGIQUE
+FORMAT
 ============================================================
 
-La fiche doit être adaptée :
+Retourne uniquement le JSON demandé par le schéma.
 
-- au niveau de la classe ;
-- à la matière ;
-- au chapitre ;
-- aux objectifs ;
-- au contexte scolaire nigérien ;
-- à la durée disponible.
+Aucun commentaire avant ou après le JSON.
 
-Les exercices doivent être progressifs.
-
-Les corrections doivent être exploitables par l'enseignant.
-
-L'évaluation doit être cohérente avec les objectifs.
-
-
-============================================================
-FORMAT DE SORTIE
-============================================================
-
-Retourne UNIQUEMENT le JSON demandé par le schéma.
-
-Aucun commentaire avant le JSON.
-
-Aucun commentaire après le JSON.
-
-Aucun Markdown.
 `;
 
-
-    // ========================================================
-    // SCHÉMA JSON STRICT
-    // ========================================================
 
     const schema = {
 
@@ -612,18 +471,12 @@ Aucun Markdown.
         properties: {
 
             prerequis: {
-                type: "string",
-                description:
-                    "Prérequis nécessaires pour aborder la leçon."
+                type: "string"
             },
-
 
             objectif_general: {
-                type: "string",
-                description:
-                    "Objectif général de la séance."
+                type: "string"
             },
-
 
             objectifs_specifiques: {
 
@@ -634,7 +487,6 @@ Aucun Markdown.
                 }
 
             },
-
 
             situation_probleme: {
 
@@ -670,7 +522,6 @@ Aucun Markdown.
                 ]
 
             },
-
 
             activite_apprentissage: {
 
@@ -744,17 +595,9 @@ Aucun Markdown.
 
             },
 
-
-            // ==================================================
-            // DÉROULEMENT
-            // ==================================================
-
             deroulement: {
 
                 type: "array",
-
-                description:
-                    "Tableau du déroulement. Chaque activité doit être strictement séparée entre enseignant et élèves.",
 
                 items: {
 
@@ -765,40 +608,19 @@ Aucun Markdown.
                     properties: {
 
                         etape: {
-
-                            type: "string",
-
-                            description:
-                                "Nom de l'étape pédagogique."
+                            type: "string"
                         },
-
 
                         duree_minutes: {
-
-                            type: "integer",
-
-                            description:
-                                "Durée de cette étape en minutes."
+                            type: "integer"
                         },
-
 
                         activite_enseignant: {
-
-                            type: "string",
-
-                            description:
-                                "UNIQUEMENT les actions réalisées par l'enseignant. Ne jamais inclure une action réalisée par les élèves."
-
+                            type: "string"
                         },
 
-
                         activite_eleves: {
-
-                            type: "string",
-
-                            description:
-                                "UNIQUEMENT les actions réalisées par les élèves. Ne jamais inclure une action réalisée par l'enseignant."
-
+                            type: "string"
                         }
 
                     },
@@ -814,15 +636,9 @@ Aucun Markdown.
 
             },
 
-
             trace_ecrite: {
-
-                type: "string",
-
-                description:
-                    "Trace écrite destinée aux élèves."
+                type: "string"
             },
-
 
             exercices: {
 
@@ -860,7 +676,6 @@ Aucun Markdown.
 
             },
 
-
             corrections: {
 
                 type: "array",
@@ -896,7 +711,6 @@ Aucun Markdown.
                 }
 
             },
-
 
             evaluation: {
 
@@ -960,7 +774,6 @@ Aucun Markdown.
 
             },
 
-
             devoir: {
 
                 type: "object",
@@ -994,7 +807,6 @@ Aucun Markdown.
 
         },
 
-
         required: [
             "prerequis",
             "objectif_general",
@@ -1012,9 +824,239 @@ Aucun Markdown.
     };
 
 
-    // ========================================================
-    // CORPS DE LA REQUÊTE OPENAI
-    // ========================================================
+    return await appelerOpenAI(
+        requete,
+        apiKey,
+        instructions,
+        schema,
+        "fiche_pedagogique_cifon"
+    );
+
+}
+
+
+// ============================================================
+// FONCTION OPENAI - EXERCICES
+// ============================================================
+
+async function genererExercicesAvecOpenAI(
+    requete,
+    apiKey
+) {
+
+    const instructions = `
+
+Tu es un expert en conception d'exercices scolaires
+pour CIFON PÉDAGOGIE NIGER.
+
+Ta mission est de produire une série d'exercices
+directement utilisable par un enseignant nigérien.
+
+
+============================================================
+PROGRAMME OFFICIEL
+============================================================
+
+Respecte strictement :
+
+- la classe ;
+- la matière ;
+- le thème ;
+- le chapitre ;
+- le contenu officiel ;
+- les objectifs officiels.
+
+Les exercices doivent être directement liés
+aux informations fournies.
+
+Ne change jamais les objectifs officiels.
+
+Ne crée pas une notion qui n'est pas nécessaire
+pour le chapitre fourni.
+
+
+============================================================
+DIFFICULTÉ
+============================================================
+
+Si la difficulté est :
+
+"Facile"
+
+→ exercices accessibles.
+
+"Moyen"
+
+→ exercices de difficulté moyenne.
+
+"Difficile"
+
+→ exercices plus exigeants mais adaptés à la classe.
+
+"Progressif"
+
+→ commencer par un exercice facile,
+puis augmenter progressivement la difficulté.
+
+
+============================================================
+RÈGLES
+============================================================
+
+1. Respecte exactement le nombre d'exercices demandé.
+
+2. Chaque exercice doit avoir un numéro.
+
+3. Chaque exercice doit avoir un niveau.
+
+4. Chaque exercice doit avoir un énoncé complet.
+
+5. Ne donne jamais la réponse dans l'énoncé.
+
+6. Ne donne jamais la correction dans l'énoncé.
+
+7. Les exercices doivent permettre de vérifier
+   les objectifs.
+
+8. Les exercices doivent être adaptés au niveau
+   des élèves.
+
+9. Ne mélange pas inutilement plusieurs chapitres.
+
+10. Utilise un français clair.
+
+11. Pour les fractions, écrire par exemple :
+    3/4
+
+12. Pour les puissances, écrire par exemple :
+    x²
+
+13. Pour les racines, écrire par exemple :
+    √25
+
+14. Ne produis pas de Markdown.
+
+15. Ne produis pas de code LaTeX.
+
+16. Retourne uniquement le JSON.
+
+17. Aucun commentaire avant ou après le JSON.
+
+
+============================================================
+FORMAT
+============================================================
+
+{
+    "titre": "Titre de la série",
+    "consigne": "Consigne générale",
+    "exercices": [
+        {
+            "numero": 1,
+            "niveau": "Facile",
+            "enonce": "Énoncé de l'exercice"
+        }
+    ]
+}
+
+`;
+
+
+    const schema = {
+
+        type: "object",
+
+        additionalProperties: false,
+
+        properties: {
+
+            titre: {
+
+                type: "string"
+
+            },
+
+            consigne: {
+
+                type: "string"
+
+            },
+
+            exercices: {
+
+                type: "array",
+
+                items: {
+
+                    type: "object",
+
+                    additionalProperties: false,
+
+                    properties: {
+
+                        numero: {
+                            type: "integer"
+                        },
+
+                        niveau: {
+                            type: "string"
+                        },
+
+                        enonce: {
+                            type: "string"
+                        }
+
+                    },
+
+                    required: [
+                        "numero",
+                        "niveau",
+                        "enonce"
+                    ]
+
+                }
+
+            }
+
+        },
+
+        required: [
+            "titre",
+            "consigne",
+            "exercices"
+        ]
+
+    };
+
+
+    return await appelerOpenAI(
+
+        requete,
+
+        apiKey,
+
+        instructions,
+
+        schema,
+
+        "serie_exercices_cifon"
+
+    );
+
+}
+
+
+// ============================================================
+// FONCTION COMMUNE D'APPEL OPENAI
+// ============================================================
+
+async function appelerOpenAI(
+    requete,
+    apiKey,
+    instructions,
+    schema,
+    nomSchema
+) {
 
     const corps = {
 
@@ -1023,10 +1065,10 @@ Aucun Markdown.
         instructions: instructions,
 
         input:
-            "Voici les informations fournies par l'application :\n\n"
+            "Voici les informations fournies par CIFON PÉDAGOGIE NIGER :\n\n"
             + requete
             + "\n\n"
-            + "Produis maintenant la fiche pédagogique complète en respectant STRICTEMENT toutes les règles précédentes, notamment la séparation entre activite_enseignant et activite_eleves.",
+            + "Produis maintenant le résultat demandé en respectant strictement les règles.",
 
         text: {
 
@@ -1034,7 +1076,7 @@ Aucun Markdown.
 
                 type: "json_schema",
 
-                name: "fiche_pedagogique_cifon",
+                name: nomSchema,
 
                 strict: true,
 
@@ -1052,12 +1094,10 @@ Aucun Markdown.
     );
 
 
-    // ========================================================
-    // APPEL OPENAI
-    // ========================================================
-
     const reponse = await fetch(
+
         "https://api.openai.com/v1/responses",
+
         {
 
             method: "POST",
@@ -1072,9 +1112,11 @@ Aucun Markdown.
 
             },
 
-            body: JSON.stringify(corps)
+            body:
+                JSON.stringify(corps)
 
         }
+
     );
 
 
@@ -1088,6 +1130,7 @@ Aucun Markdown.
             "Réponse OpenAI :",
             texteReponse
         );
+
 
         let message =
             "Erreur lors de la communication avec OpenAI.";
@@ -1130,10 +1173,6 @@ Aucun Markdown.
     }
 
 
-    // ========================================================
-    // LECTURE DE LA RÉPONSE
-    // ========================================================
-
     let donnees;
 
     try {
@@ -1159,7 +1198,7 @@ Aucun Markdown.
     // EXTRACTION DU TEXTE STRUCTURÉ
     // ========================================================
 
-    let texteCours = "";
+    let texteResultat = "";
 
 
     if (
@@ -1167,14 +1206,14 @@ Aucun Markdown.
         donnees.output_text.trim() !== ""
     ) {
 
-        texteCours =
+        texteResultat =
             donnees.output_text.trim();
 
     }
 
 
     if (
-        !texteCours &&
+        !texteResultat &&
         Array.isArray(donnees.output)
     ) {
 
@@ -1201,7 +1240,7 @@ Aucun Markdown.
                     typeof contenu.text === "string"
                 ) {
 
-                    texteCours +=
+                    texteResultat +=
                         contenu.text;
 
                 }
@@ -1213,52 +1252,71 @@ Aucun Markdown.
     }
 
 
-    if (!texteCours) {
+    if (!texteResultat) {
 
         console.error(
             "Réponse OpenAI complète :",
-            JSON.stringify(donnees, null, 2)
+            JSON.stringify(
+                donnees,
+                null,
+                2
+            )
         );
 
+
         throw new Error(
-            "OpenAI a répondu mais aucun contenu de cours n'a été reçu."
+            "OpenAI a répondu mais aucun contenu structuré n'a été reçu."
         );
 
     }
 
 
     // ========================================================
-    // CONVERSION DU JSON DU COURS
+    // PARSE JSON
     // ========================================================
 
-    let coursStructure;
+    let resultat;
 
     try {
 
-        coursStructure =
-            JSON.parse(texteCours);
+        resultat =
+            JSON.parse(
+                texteResultat
+            );
 
     } catch (e) {
 
         console.error(
-            "Cours reçu non JSON :",
-            texteCours
+            "Résultat reçu non JSON :",
+            texteResultat
         );
 
+
         throw new Error(
-            "Le cours généré n'a pas le format structuré attendu."
+            "Le résultat généré n'a pas le format JSON attendu."
         );
 
     }
 
 
-    // ========================================================
-    // VALIDATION SUPPLÉMENTAIRE DU DÉROULEMENT
-    // ========================================================
+    return resultat;
+
+}
+
+
+// ============================================================
+// VALIDATION DU DÉROULEMENT
+// ============================================================
+
+function validerDeroulement(
+    cours
+) {
 
     if (
-        !coursStructure ||
-        !Array.isArray(coursStructure.deroulement)
+        !cours ||
+        !Array.isArray(
+            cours.deroulement
+        )
     ) {
 
         throw new Error(
@@ -1269,7 +1327,8 @@ Aucun Markdown.
 
 
     for (
-        const ligne of coursStructure.deroulement
+        const ligne
+        of cours.deroulement
     ) {
 
         if (
@@ -1285,13 +1344,11 @@ Aucun Markdown.
 
 
         if (
-            typeof ligne.etape !== "string" ||
-            typeof ligne.activite_enseignant !== "string" ||
-            typeof ligne.activite_eleves !== "string"
+            typeof ligne.etape !== "string"
         ) {
 
             throw new Error(
-                "Chaque ligne du déroulement doit contenir séparément : etape, activite_enseignant et activite_eleves."
+                "Le nom de l'étape est invalide."
             );
 
         }
@@ -1302,42 +1359,156 @@ Aucun Markdown.
         ) {
 
             throw new Error(
-                "La durée d'une étape du déroulement doit être un nombre."
+                "La durée de l'étape est invalide."
             );
 
         }
 
 
         if (
-            ligne.activite_enseignant.trim() === ""
+            typeof ligne.activite_enseignant !== "string"
         ) {
 
             throw new Error(
-                "Une activité de l'enseignant est vide."
+                "L'activité de l'enseignant est invalide."
             );
 
         }
 
 
         if (
-            ligne.activite_eleves.trim() === ""
+            typeof ligne.activite_eleves !== "string"
         ) {
 
             throw new Error(
-                "Une activité des élèves est vide."
+                "L'activité des élèves est invalide."
+            );
+
+        }
+
+
+        if (
+            ligne.activite_enseignant
+                .trim() === ""
+        ) {
+
+            throw new Error(
+                "L'activité de l'enseignant est vide."
+            );
+
+        }
+
+
+        if (
+            ligne.activite_eleves
+                .trim() === ""
+        ) {
+
+            throw new Error(
+                "L'activité des élèves est vide."
             );
 
         }
 
     }
 
-
-    console.log(
-        "Cours généré avec déroulement structuré."
-    );
+}
 
 
-    return coursStructure;
+// ============================================================
+// VALIDATION DES EXERCICES
+// ============================================================
+
+function validerExercices(
+    serie
+) {
+
+    if (
+        !serie ||
+        !Array.isArray(
+            serie.exercices
+        )
+    ) {
+
+        throw new Error(
+            "La liste des exercices est absente ou invalide."
+        );
+
+    }
+
+
+    if (
+        serie.exercices.length === 0
+    ) {
+
+        throw new Error(
+            "Aucun exercice n'a été généré."
+        );
+
+    }
+
+
+    for (
+        const exercice
+        of serie.exercices
+    ) {
+
+        if (
+            !exercice ||
+            typeof exercice !== "object"
+        ) {
+
+            throw new Error(
+                "Un exercice généré est invalide."
+            );
+
+        }
+
+
+        if (
+            typeof exercice.numero !== "number"
+        ) {
+
+            throw new Error(
+                "Le numéro d'un exercice est invalide."
+            );
+
+        }
+
+
+        if (
+            typeof exercice.niveau !== "string"
+        ) {
+
+            throw new Error(
+                "Le niveau d'un exercice est invalide."
+            );
+
+        }
+
+
+        if (
+            typeof exercice.enonce !== "string"
+        ) {
+
+            throw new Error(
+                "L'énoncé d'un exercice est invalide."
+            );
+
+        }
+
+
+        if (
+            exercice.enonce.trim() === ""
+        ) {
+
+            throw new Error(
+                "Un exercice possède un énoncé vide."
+            );
+
+        }
+
+    }
 
 }
 
@@ -1346,7 +1517,9 @@ Aucun Markdown.
 // GESTION DES ERREURS
 // ============================================================
 
-function obtenirMessageErreur(erreur) {
+function obtenirMessageErreur(
+    erreur
+) {
 
     if (!erreur) {
 
@@ -1391,6 +1564,30 @@ app.listen(
         console.log(
             "Version : "
             + VERSION
+        );
+
+        console.log(
+            "Routes disponibles :"
+        );
+
+        console.log(
+            "GET  /"
+        );
+
+        console.log(
+            "GET  /sante"
+        );
+
+        console.log(
+            "GET  /test-generation"
+        );
+
+        console.log(
+            "POST /generer-cours"
+        );
+
+        console.log(
+            "POST /generer-exercices"
         );
 
         console.log(
