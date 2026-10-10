@@ -1,3 +1,4 @@
+
 "use strict";
 
 const express = require("express");
@@ -9,11 +10,11 @@ app.use(express.json({ limit: "2mb" }));
 // ============================================================
 // CIFON PEDAGOGIE NIGER
 // SERVEUR CENTRAL DE GENERATION PEDAGOGIQUE
-// Version 2.5.0
+// Version 2.6.0
 // ============================================================
 
 const PORT = process.env.PORT || 3000;
-const VERSION = "2.5.0";
+const VERSION = "2.6.0";
 const MODEL = process.env.OPENAI_MODEL || "gpt-6-luna";
 
 const openai = new OpenAI({
@@ -21,8 +22,7 @@ const openai = new OpenAI({
 });
 
 // ============================================================
-// SCHEMA DES FORMES POUR LE DESSIN DES FIGURES
-// Coordonnees normalisees de 0 a 100
+// SCHEMA DES FORMES POUR LES FIGURES
 // ============================================================
 
 const schemaForme = {
@@ -50,15 +50,8 @@ const schemaForme = {
     label: { type: "string" }
   },
   required: [
-    "type",
-    "x1",
-    "y1",
-    "x2",
-    "y2",
-    "x3",
-    "y3",
-    "rayon",
-    "label"
+    "type", "x1", "y1", "x2", "y2",
+    "x3", "y3", "rayon", "label"
   ]
 };
 
@@ -106,20 +99,85 @@ const schemaBlocTrace = {
     }
   },
   required: [
-    "type",
+    "type", "titre", "texte", "elements",
+    "colonnes", "lignes", "description",
+    "legende", "formes"
+  ]
+};
+
+// ============================================================
+// SCHEMA D'UNE LIGNE DU TABLEAU DE DEROULEMENT
+// ============================================================
+
+const schemaLigneDeroulement = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    phase: { type: "string" },
+    duree: { type: "string" },
+    objectif: { type: "string" },
+    activites_enseignant: { type: "string" },
+    activites_eleves: { type: "string" },
+    observations: { type: "string" }
+  },
+  required: [
+    "phase",
+    "duree",
+    "objectif",
+    "activites_enseignant",
+    "activites_eleves",
+    "observations"
+  ]
+};
+
+// ============================================================
+// SCHEMA DES REFERENCES DOCUMENTAIRES
+// ============================================================
+
+const schemaReference = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    type_source: {
+      type: "string",
+      enum: [
+        "programme_officiel",
+        "manuel_scolaire",
+        "site_web",
+        "autre",
+        "a_verifier"
+      ]
+    },
+    titre: { type: "string" },
+    auteur_ou_organisme: { type: "string" },
+    date_ou_edition: { type: "string" },
+    pages: { type: "string" },
+    url: { type: "string" },
+    statut_verification: {
+      type: "string",
+      enum: [
+        "information_connue",
+        "lien_fourni_non_verifie",
+        "a_verifier"
+      ]
+    },
+    utilite: { type: "string" }
+  },
+  required: [
+    "type_source",
     "titre",
-    "texte",
-    "elements",
-    "colonnes",
-    "lignes",
-    "description",
-    "legende",
-    "formes"
+    "auteur_ou_organisme",
+    "date_ou_edition",
+    "pages",
+    "url",
+    "statut_verification",
+    "utilite"
   ]
 };
 
 // ============================================================
 // SCHEMA COMPLET D'UNE FICHE PEDAGOGIQUE
+// Les champs historiques sont conserves.
 // ============================================================
 
 const schemaCours = {
@@ -133,21 +191,40 @@ const schemaCours = {
     duree: { type: "string" },
     prerequis: { type: "string" },
     objectif_general: { type: "string" },
+
     objectifs_specifiques: {
       type: "array",
       items: { type: "string" }
     },
+
     justification: { type: "string" },
     materiel_didactique: { type: "string" },
     references: { type: "string" },
+
+    references_detaillees: {
+      type: "array",
+      items: schemaReference
+    },
+
     situation_probleme: { type: "string" },
     activite_apprentissage: { type: "string" },
+
+    // Champ textuel conservé pour compatibilité.
     deroulement: { type: "string" },
+
+    // Données structurées pour le véritable tableau Android.
+    tableau_deroulement: {
+      type: "array",
+      items: schemaLigneDeroulement
+    },
+
     trace_ecrite: { type: "string" },
+
     trace_structuree: {
       type: "array",
       items: schemaBlocTrace
     },
+
     exercices: { type: "string" },
     corrections: { type: "string" },
     evaluation: { type: "string" },
@@ -165,9 +242,11 @@ const schemaCours = {
     "justification",
     "materiel_didactique",
     "references",
+    "references_detaillees",
     "situation_probleme",
     "activite_apprentissage",
     "deroulement",
+    "tableau_deroulement",
     "trace_ecrite",
     "trace_structuree",
     "exercices",
@@ -189,6 +268,7 @@ const schemaExercices = {
     classe: { type: "string" },
     matiere: { type: "string" },
     consigne_generale: { type: "string" },
+
     exercices: {
       type: "array",
       items: {
@@ -208,6 +288,7 @@ const schemaExercices = {
         ]
       }
     },
+
     corrections: {
       type: "array",
       items: {
@@ -237,7 +318,7 @@ const schemaExercices = {
 };
 
 // ============================================================
-// OUTILS
+// OUTILS GENERAUX
 // ============================================================
 
 function texte(valeur, defaut = "") {
@@ -266,10 +347,19 @@ function extraireRequete(body) {
       : {};
 
   return {
-    classe: texte(r.classe || r.niveau_scolaire, "Non précisée"),
-    matiere: texte(r.matiere || r.discipline, "Non précisée"),
+    classe: texte(
+      r.classe || r.niveau_scolaire,
+      "Non précisée"
+    ),
+    matiere: texte(
+      r.matiere || r.discipline,
+      "Non précisée"
+    ),
     serie: texte(r.serie, ""),
-    chapitre: texte(r.chapitre || r.lecon || r.titre, "À déterminer"),
+    chapitre: texte(
+      r.chapitre || r.lecon || r.titre,
+      "À déterminer"
+    ),
     theme: texte(r.theme, ""),
     duree: texte(r.duree, "À préciser"),
     niveau: texte(r.niveau, ""),
@@ -293,6 +383,10 @@ function verifierCleAPI() {
     );
   }
 }
+
+// ============================================================
+// VALIDATION DU COURS
+// ============================================================
 
 function verifierCours(cours) {
   if (!cours || typeof cours !== "object") {
@@ -322,6 +416,43 @@ function verifierCours(cours) {
         champ
       );
     }
+  }
+
+  if (
+    !Array.isArray(cours.tableau_deroulement) ||
+    cours.tableau_deroulement.length === 0
+  ) {
+    throw new Error(
+      "Le tableau structuré du déroulement est absent."
+    );
+  }
+
+  const champsLigne = [
+    "phase",
+    "duree",
+    "objectif",
+    "activites_enseignant",
+    "activites_eleves",
+    "observations"
+  ];
+
+  for (const ligne of cours.tableau_deroulement) {
+    for (const champ of champsLigne) {
+      if (!texte(ligne[champ])) {
+        throw new Error(
+          "Une ligne du déroulement ne contient pas le champ : " +
+          champ
+        );
+      }
+    }
+  }
+
+  if (
+    !Array.isArray(cours.references_detaillees)
+  ) {
+    throw new Error(
+      "Le tableau des références détaillées est invalide."
+    );
   }
 
   if (
@@ -382,17 +513,24 @@ function verifierCours(cours) {
 // APPEL A L'API OPENAI
 // ============================================================
 
-async function appelerOpenAI(instructions, schema, nomSchema) {
+async function appelerOpenAI(
+  instructions,
+  schema,
+  nomSchema
+) {
   verifierCleAPI();
 
   const reponse = await openai.responses.create({
     model: MODEL,
+
     instructions:
       "Tu es un expert en pédagogie, en didactique et en conception " +
       "de ressources éducatives adaptées au Niger. " +
-      "Tu produis des contenus exacts, riches, progressifs et utilisables " +
-      "directement par un enseignant. Respecte strictement le format demandé.",
+      "Produis des contenus exacts, riches, progressifs et directement " +
+      "exploitables par un enseignant. Respecte strictement le schéma JSON.",
+
     input: instructions,
+
     text: {
       format: {
         type: "json_schema",
@@ -406,9 +544,7 @@ async function appelerOpenAI(instructions, schema, nomSchema) {
   const sortie = reponse.output_text;
 
   if (!sortie || !sortie.trim()) {
-    throw new Error(
-      "L'API a renvoyé une réponse vide."
-    );
+    throw new Error("L'API a renvoyé une réponse vide.");
   }
 
   try {
@@ -422,7 +558,7 @@ async function appelerOpenAI(instructions, schema, nomSchema) {
 }
 
 // ============================================================
-// INSTRUCTIONS DE GENERATION D'UN COURS
+// INSTRUCTIONS DE GENERATION DU COURS
 // ============================================================
 
 function construireInstructionsCours(r) {
@@ -435,178 +571,151 @@ INFORMATIONS :
 - Classe : ${r.classe}
 - Matière : ${r.matiere}
 - Série : ${r.serie || "Non précisée"}
-- Chapitre ou leçon : ${r.chapitre}
-- Thème complémentaire : ${r.theme || "Aucun"}
-- Durée indicative : ${r.duree}
+- Chapitre : ${r.chapitre}
+- Thème : ${r.theme || "Aucun"}
+- Durée : ${r.duree}
 - Niveau : ${r.niveau || "Non précisé"}
-- Précisions de l'enseignant : ${r.details || "Aucune"}
+- Précisions : ${r.details || "Aucune"}
 
 REGLES GENERALES :
-1. Adapter le vocabulaire, les exemples et les exercices à la classe.
-2. Respecter les connaissances préalables des élèves.
-3. Ne pas inventer de référence officielle, de page de manuel
-   ou de texte réglementaire.
-4. Si une référence officielle précise n'est pas connue,
-   indiquer honnêtement les ressources pédagogiques générales
-   à consulter et la nécessité de vérifier le programme en vigueur.
-5. Employer des exemples concrets, si possible adaptés au contexte
-   nigérien et au milieu rural.
-6. Donner des explications suffisantes pour qu'un enseignant
-   puisse préparer et conduire sa séance sans devoir tout compléter.
-7. Éviter les phrases vagues, les répétitions et les contenus trop courts.
+1. Adapter les contenus au niveau réel des élèves.
+2. Respecter les connaissances préalables.
+3. Employer des exemples concrets adaptés au Niger.
+4. Donner des explications suffisamment détaillées.
+5. Éviter les répétitions et les phrases vagues.
+6. Ne pas inventer de source officielle, d'auteur, de page ou de lien.
+7. Distinguer clairement les informations connues de celles à vérifier.
 
-CONTENU OBLIGATOIRE :
-
-A. TITRE ET IDENTIFICATION
-Indiquer le titre, la classe, la matière, le chapitre et la durée.
+A. IDENTIFICATION
+Fournir le titre, la classe, la matière, le chapitre et la durée.
 
 B. PREREQUIS
-Préciser les connaissances que les élèves doivent déjà maîtriser.
-Donner au moins deux prérequis pertinents lorsque le sujet le permet.
+Présenter les connaissances nécessaires à l'apprentissage.
 
 C. OBJECTIF GENERAL
-Formuler un objectif pédagogique clair et observable.
+Formuler un objectif observable et adapté au niveau.
 
 D. OBJECTIFS SPECIFIQUES
-Donner plusieurs objectifs mesurables avec des verbes d'action :
-identifier, définir, calculer, construire, expliquer, démontrer,
-comparer ou résoudre, selon la discipline.
+Donner plusieurs objectifs mesurables avec des verbes d'action.
 
 E. JUSTIFICATION
-Expliquer pourquoi cette leçon est importante :
-- dans la progression scolaire ;
-- pour les apprentissages futurs ;
-- dans les situations de la vie courante ;
-- pour le développement des compétences des élèves.
+Expliquer l'intérêt de la leçon dans la progression, les apprentissages
+futurs et la vie courante.
 
 F. MATERIEL DIDACTIQUE
-Lister le matériel concret nécessaire à la séance :
-tableau, craie, cahier, règle, instruments de géométrie,
-objets locaux, fiches, images ou supports numériques selon le sujet.
 Distinguer le matériel indispensable du matériel facultatif.
 
-G. REFERENCES
-Indiquer les références réellement identifiables et pertinentes :
-programme officiel applicable si connu, manuel scolaire adapté
-à la classe si connu, documents pédagogiques et ressources de référence.
-Ne jamais fabriquer un titre de document, un auteur, une date ou une page.
-Si les références précises ne peuvent pas être établies, le signaler
-explicitement et recommander la vérification du programme officiel
-du Niger en vigueur.
+G. REFERENCES ET SOURCES DOCUMENTAIRES
+
+Le champ references doit présenter clairement les références disponibles.
+Le champ references_detaillees doit contenir des objets structurés.
+
+Pour chaque source, préciser :
+- type_source ;
+- titre ;
+- auteur_ou_organisme ;
+- date_ou_edition ;
+- pages ;
+- url ;
+- statut_verification ;
+- utilite.
+
+Types de sources autorisés :
+programme_officiel, manuel_scolaire, site_web, autre, a_verifier.
+
+Statuts autorisés :
+information_connue, lien_fourni_non_verifie, a_verifier.
+
+Pour le programme officiel du Niger, préciser la classe et la matière
+lorsque ces informations sont connues. Ne pas inventer de titre officiel,
+d'année d'édition ou de numéro de page.
+
+Pour les manuels, ne fournir le titre, les auteurs, l'éditeur et les pages
+que lorsque ces informations sont connues.
+
+Pour les sites internet, donner le nom du site et le lien direct seulement
+si l'adresse est connue. Un lien proposé mais non vérifié doit porter
+le statut lien_fourni_non_verifie. Ne jamais affirmer qu'une page a été
+consultée si sa consultation n'a pas été effectuée.
+
+Si aucune référence précise n'est connue, créer une entrée de type
+a_verifier, avec un titre indiquant que les références officielles
+doivent être vérifiées, une URL vide et un statut a_verifier.
+
+Ne pas présenter une source recommandée comme une source effectivement
+consultée. Ne jamais fabriquer de références pour remplir la rubrique.
 
 H. SITUATION-PROBLEME
-Proposer une situation concrète, compréhensible et adaptée à l'âge.
-Présenter le contexte, les données utiles et la question à résoudre.
-La situation doit permettre de faire émerger la notion étudiée.
+Créer une situation concrète avec un contexte, des données et une question.
 
 I. ACTIVITE D'APPRENTISSAGE
-Décrire ce que font les élèves, individuellement ou en groupes,
-les questions posées par l'enseignant, les observations attendues
-et les échanges qui conduisent à la découverte de la notion.
+Décrire les activités, les questions, les recherches et les réponses attendues.
 
-J. DEROULEMENT
-Présenter un déroulement détaillé et chronologique :
-1. Mise en situation et rappel des prérequis.
+J. DEROULEMENT DE LA SEANCE
+
+Le champ deroulement doit contenir un résumé textuel du déroulement.
+
+Le champ tableau_deroulement doit contenir au minimum cinq lignes
+pédagogiques structurées, sauf si la nature de la leçon justifie autrement.
+
+Chaque ligne doit renseigner exactement :
+- phase : nom de l'étape ;
+- duree : durée indicative de l'étape ;
+- objectif : objectif de l'étape ;
+- activites_enseignant : actions et consignes précises de l'enseignant ;
+- activites_eleves : actions et réponses attendues des élèves ;
+- observations : points à vérifier, difficultés possibles ou critères de réussite.
+
+Prévoir des étapes pertinentes, par exemple :
+1. Rappel des prérequis.
 2. Présentation de la situation-problème.
 3. Recherche individuelle ou en groupes.
-4. Mise en commun et confrontation des réponses.
-5. Explication et institutionnalisation par l'enseignant.
+4. Mise en commun et explication.
+5. Institutionnalisation ou synthèse.
 6. Exercices d'application.
-7. Synthèse et vérification des acquis.
+7. Évaluation, si la durée le permet.
 
-Pour chaque étape, préciser autant que possible :
-- le rôle de l'enseignant ;
-- les activités des élèves ;
-- les questions ou consignes ;
-- les réponses attendues ;
-- la durée indicative.
+Adapter les étapes à la discipline. Les durées doivent être réalistes
+et leur somme doit être cohérente avec la durée totale annoncée.
+
+Ne pas remplir les cellules par des phrases génériques identiques.
+Les activités doivent correspondre précisément à la leçon demandée.
 
 K. TRACE ECRITE
-Produire une leçon rédigée, complète et adaptée au niveau.
-Inclure les définitions, propriétés, règles, méthodes, formules
-et exemples nécessaires à la compréhension.
+Fournir une leçon complète et progressive, avec définitions, règles,
+propriétés, méthodes, formules et exemples selon la discipline.
 En mathématiques, détailler les calculs et justifier les résultats.
 En sciences, distinguer observations, explications et conclusions.
-Dans les autres disciplines, fournir les notions et méthodes adaptées.
 
 L. TRACE STRUCTUREE
-Créer une suite de blocs ordonnés permettant d'afficher une trace
-écrite structurée dans l'application Android.
+Créer plusieurs blocs ordonnés :
+heading, subheading, paragraph, list, table ou diagram.
 
-Types autorisés :
-- heading : titre principal ;
-- subheading : sous-titre ;
-- paragraph : explication ;
-- list : liste d'éléments ;
-- table : tableau ;
-- diagram : figure ou schéma.
+Tous les champs du schéma doivent être présents.
+Les champs non utilisés doivent être vides ou contenir un tableau vide.
 
-Chaque bloc doit comporter tous les champs requis par le format JSON.
-Le tableau "formes" doit toujours exister, même lorsqu'il est vide.
-
-Pour les blocs de type table :
-- remplir colonnes ;
-- remplir lignes avec des cellules cohérentes.
-
-Pour les blocs de type diagram :
-- fournir une description précise ;
-- fournir une légende utile ;
-- créer des formes exploitables par le moteur de dessin.
-
-COORDONNEES DES FIGURES :
-Les coordonnées sont comprises entre 0 et 100.
-L'origine (0,0) se trouve en haut à gauche.
-x augmente vers la droite et y augmente vers le bas.
-
-Formes disponibles :
-- line : segment défini par x1, y1, x2, y2 ;
-- triangle : sommets x1,y1 ; x2,y2 ; x3,y3 ;
-- rectangle : coins opposés x1,y1 et x2,y2 ;
-- circle : centre x1,y1 et rayon positif ;
-- cube : schéma de cube à construire à partir des coordonnées
-  et des segments nécessaires ;
-- text : annotation positionnée à x1,y1 avec label.
-
-Chaque objet forme doit renseigner tous les champs :
-type, x1, y1, x2, y2, x3, y3, rayon et label.
-Pour les champs inutilisés, utiliser 0 ou une chaîne vide.
-Ne pas utiliser de coordonnées hors de l'intervalle 0-100.
-Pour une figure géométrique utile, produire plusieurs formes cohérentes.
-Ne pas créer de figure décorative sans rapport avec la leçon.
-
-Si le sujet nécessite un schéma, un graphique, une construction
-géométrique ou une figure scientifique, fournir un bloc diagram
-avec les formes nécessaires.
-Par exemple, pour une leçon sur le triangle, construire un triangle
-réel avec trois sommets et ses côtés. Pour le cercle, préciser son centre,
-son rayon et les annotations utiles.
-Ne pas prétendre qu'une figure est dessinée si aucune forme n'est fournie.
+Pour les tableaux, renseigner les colonnes et des lignes cohérentes.
+Pour les figures, utiliser des coordonnées de 0 à 100.
+Les formes doivent être adaptées au sujet, et non décoratives.
 
 M. EXERCICES
-Proposer plusieurs exercices progressifs :
-- compréhension directe ;
-- application ;
-- réflexion ou résolution de problème.
-Fournir des données complètes et des consignes sans ambiguïté.
+Proposer des exercices progressifs, avec des données suffisantes
+et des consignes sans ambiguïté.
 
 N. CORRECTIONS
-Corriger chaque exercice dans le même ordre.
-Donner les étapes de raisonnement et les calculs nécessaires.
-Ne pas donner uniquement la réponse finale.
+Corriger chaque exercice dans le même ordre avec le raisonnement détaillé.
 
 O. EVALUATION
-Proposer des questions ou tâches permettant de vérifier les objectifs.
-Inclure les réponses attendues ou les critères de réussite dans le texte.
+Vérifier les objectifs spécifiques et préciser les réponses attendues
+ou les critères de réussite.
 
 P. DEVOIR A LA MAISON
-Proposer un travail réaliste et adapté à la classe,
-avec une consigne claire et des données suffisantes.
+Proposer un travail réaliste et adapté au niveau.
 
-EXIGENCE DE QUALITE :
-Le contenu doit être substantiel et pédagogique, et non un simple résumé.
-Fournir suffisamment d'explications, d'exemples et d'activités.
-Respecter strictement la structure JSON demandée.
-Ne pas ajouter de propriétés qui ne figurent pas dans le schéma.
+EXIGENCE FINALE :
+Le contenu doit être substantiel, exact et pédagogique.
+Respecter strictement le schéma JSON demandé.
+Ne pas ajouter de propriétés non prévues.
 `;
 }
 
@@ -642,7 +751,9 @@ app.get("/sante", (req, res) => {
     application: "CIFON PEDAGOGIE NIGER",
     version: VERSION,
     modele: MODEL,
-    cle_api_configuree: Boolean(process.env.OPENAI_API_KEY)
+    cle_api_configuree: Boolean(
+      process.env.OPENAI_API_KEY
+    )
   });
 });
 
@@ -656,6 +767,7 @@ app.get("/test-generation", async (req, res) => {
       "Réponds avec un objet JSON comportant un titre de cours " +
       "et une explication courte sur le cube et le pavé droit " +
       "pour une classe de 6e au Niger.",
+
       {
         type: "object",
         additionalProperties: false,
@@ -665,6 +777,7 @@ app.get("/test-generation", async (req, res) => {
         },
         required: ["titre", "explication"]
       },
+
       "test_generation_cifon"
     );
 
@@ -711,7 +824,8 @@ app.post("/generer-cours", async (req, res) => {
       requete.chapitre
     );
 
-    const instructions = construireInstructionsCours(requete);
+    const instructions =
+      construireInstructionsCours(requete);
 
     const cours = await appelerOpenAI(
       instructions,
@@ -721,13 +835,29 @@ app.post("/generer-cours", async (req, res) => {
 
     verifierCours(cours);
 
-    // Compléter les informations d'identification si nécessaire.
-    cours.classe = texte(cours.classe, requete.classe);
-    cours.matiere = texte(cours.matiere, requete.matiere);
-    cours.chapitre = texte(cours.chapitre, requete.chapitre);
-    cours.duree = texte(cours.duree, requete.duree);
+    cours.classe = texte(
+      cours.classe,
+      requete.classe
+    );
 
-    console.log("Cours généré et validé.");
+    cours.matiere = texte(
+      cours.matiere,
+      requete.matiere
+    );
+
+    cours.chapitre = texte(
+      cours.chapitre,
+      requete.chapitre
+    );
+
+    cours.duree = texte(
+      cours.duree,
+      requete.duree
+    );
+
+    console.log(
+      "Cours généré et validé avec tableau structuré."
+    );
 
     return res.json({
       success: true,
@@ -741,7 +871,9 @@ app.post("/generer-cours", async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      erreur: erreur.message || "Erreur lors de la génération du cours.",
+      erreur:
+        erreur.message ||
+        "Erreur lors de la génération du cours.",
       version: VERSION
     });
   }
@@ -771,12 +903,12 @@ app.post("/generer-exercices", async (req, res) => {
     );
 
     const instructions = `
-Tu es un expert en didactique et en conception d'évaluations scolaires.
+Tu es un expert en didactique et en évaluations scolaires.
 
-Génère ${nombre} exercices adaptés à des élèves de ${requete.classe},
-en ${requete.matiere}.
+Génère ${nombre} exercices adaptés à des élèves de
+${requete.classe}, en ${requete.matiere}.
 
-Chapitre ou leçon : ${requete.chapitre}
+Chapitre : ${requete.chapitre}
 Thème : ${requete.theme || "À déterminer"}
 Précisions : ${requete.details || "Aucune"}
 
@@ -785,9 +917,9 @@ CONSIGNES :
 2. Adapter les données et le vocabulaire au niveau scolaire.
 3. Vérifier l'exactitude des réponses.
 4. Donner une correction complète pour chaque exercice.
-5. Expliquer les étapes de raisonnement, et les calculs si nécessaire.
-6. Numéroter les exercices et leurs corrections de façon cohérente.
-7. Ne pas inventer de référence officielle.
+5. Expliquer les étapes de raisonnement et les calculs.
+6. Numéroter les exercices et corrections de façon cohérente.
+7. Ne pas inventer de références officielles.
 8. Respecter strictement le format JSON demandé.
 `;
 
@@ -801,14 +933,18 @@ CONSIGNES :
       !Array.isArray(resultat.exercices) ||
       resultat.exercices.length === 0
     ) {
-      throw new Error("Aucun exercice n'a été généré.");
+      throw new Error(
+        "Aucun exercice n'a été généré."
+      );
     }
 
     if (
       !Array.isArray(resultat.corrections) ||
       resultat.corrections.length === 0
     ) {
-      throw new Error("Aucune correction n'a été générée.");
+      throw new Error(
+        "Aucune correction n'a été générée."
+      );
     }
 
     return res.json({
@@ -821,7 +957,10 @@ CONSIGNES :
       modele: MODEL
     });
   } catch (erreur) {
-    console.error("Erreur /generer-exercices :", erreur);
+    console.error(
+      "Erreur /generer-exercices :",
+      erreur
+    );
 
     return res.status(500).json({
       success: false,
@@ -834,7 +973,7 @@ CONSIGNES :
 });
 
 // ============================================================
-// GESTION DES ROUTES INCONNUES
+// ROUTES INCONNUES
 // ============================================================
 
 app.use((req, res) => {
