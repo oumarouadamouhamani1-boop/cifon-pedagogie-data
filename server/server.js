@@ -1,4 +1,3 @@
-
 "use strict";
 
 const express = require("express");
@@ -10,11 +9,11 @@ app.use(express.json({ limit: "2mb" }));
 // ============================================================
 // CIFON PEDAGOGIE NIGER
 // SERVEUR CENTRAL DE GENERATION PEDAGOGIQUE
-// Version 2.6.0
+// Version 2.7.0
 // ============================================================
 
 const PORT = process.env.PORT || 3000;
-const VERSION = "2.6.0";
+const VERSION = "2.7.0";
 const MODEL = process.env.OPENAI_MODEL || "gpt-6-luna";
 
 const openai = new OpenAI({
@@ -22,7 +21,151 @@ const openai = new OpenAI({
 });
 
 // ============================================================
-// SCHEMA DES FORMES POUR LES FIGURES
+// OUTILS GENERAUX
+// ============================================================
+
+function texte(valeur, defaut = "") {
+  if (valeur === null || valeur === undefined) {
+    return defaut;
+  }
+
+  if (typeof valeur === "string") {
+    return valeur.trim() || defaut;
+  }
+
+  if (
+    typeof valeur === "number" ||
+    typeof valeur === "boolean"
+  ) {
+    return String(valeur);
+  }
+
+  return defaut;
+}
+
+function extraireObjectifs(source) {
+  if (Array.isArray(source)) {
+    return source
+      .map((item) => {
+        if (typeof item === "string") {
+          return item.trim();
+        }
+
+        if (item && typeof item === "object") {
+          return texte(
+            item.texte ||
+            item.objectif ||
+            item.libelle ||
+            item.description,
+            ""
+          );
+        }
+
+        return "";
+      })
+      .filter(Boolean);
+  }
+
+  if (typeof source === "string") {
+    return source
+      .split(/\r?\n/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function extraireRequete(body) {
+  const r =
+    body && typeof body === "object"
+      ? body
+      : {};
+
+  const sourcesObjectifs = [
+    r.objectifs_selectionnes,
+    r.objectifsSelectionnes,
+    r.objectifs_specifiques,
+    r.objectifs,
+    r.selectedObjectives
+  ];
+
+  let objectifsSelectionnes = [];
+
+  for (const source of sourcesObjectifs) {
+    objectifsSelectionnes = extraireObjectifs(source);
+
+    if (objectifsSelectionnes.length > 0) {
+      break;
+    }
+  }
+
+  return {
+    classe: texte(
+      r.classe || r.niveau_scolaire,
+      "Non précisée"
+    ),
+
+    matiere: texte(
+      r.matiere || r.discipline,
+      "Non précisée"
+    ),
+
+    serie: texte(r.serie, ""),
+
+    chapitre: texte(
+      r.chapitre ||
+      r.lecon ||
+      r.titre_lecon ||
+      r.titre,
+      "À déterminer"
+    ),
+
+    theme: texte(r.theme, ""),
+
+    duree: texte(r.duree, "À préciser"),
+
+    niveau: texte(r.niveau, ""),
+
+    type: texte(r.type, ""),
+
+    nombre: Number(r.nombre) || 5,
+
+    objectifsSelectionnes,
+
+    contenuProgramme: texte(
+      r.contenu_programme ||
+      r.contenuProgramme,
+      ""
+    ),
+
+    sourceProgramme: texte(
+      r.source_programme ||
+      r.sourceProgramme,
+      ""
+    ),
+
+    details: texte(
+      r.demande ||
+      r.description ||
+      r.contenu ||
+      r.prompt ||
+      r.instruction,
+      ""
+    )
+  };
+}
+
+function verifierCleAPI() {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error(
+      "La variable OPENAI_API_KEY est absente des variables d'environnement."
+    );
+  }
+}
+
+// ============================================================
+// SCHEMA DES FORMES
 // ============================================================
 
 const schemaForme = {
@@ -50,8 +193,15 @@ const schemaForme = {
     label: { type: "string" }
   },
   required: [
-    "type", "x1", "y1", "x2", "y2",
-    "x3", "y3", "rayon", "label"
+    "type",
+    "x1",
+    "y1",
+    "x2",
+    "y2",
+    "x3",
+    "y3",
+    "rayon",
+    "label"
   ]
 };
 
@@ -99,14 +249,20 @@ const schemaBlocTrace = {
     }
   },
   required: [
-    "type", "titre", "texte", "elements",
-    "colonnes", "lignes", "description",
-    "legende", "formes"
+    "type",
+    "titre",
+    "texte",
+    "elements",
+    "colonnes",
+    "lignes",
+    "description",
+    "legende",
+    "formes"
   ]
 };
 
 // ============================================================
-// SCHEMA D'UNE LIGNE DU TABLEAU DE DEROULEMENT
+// SCHEMA DU DEROULEMENT
 // ============================================================
 
 const schemaLigneDeroulement = {
@@ -131,7 +287,7 @@ const schemaLigneDeroulement = {
 };
 
 // ============================================================
-// SCHEMA DES REFERENCES DOCUMENTAIRES
+// SCHEMA DES REFERENCES
 // ============================================================
 
 const schemaReference = {
@@ -176,8 +332,7 @@ const schemaReference = {
 };
 
 // ============================================================
-// SCHEMA COMPLET D'UNE FICHE PEDAGOGIQUE
-// Les champs historiques sont conserves.
+// SCHEMA DU COURS
 // ============================================================
 
 const schemaCours = {
@@ -208,11 +363,8 @@ const schemaCours = {
 
     situation_probleme: { type: "string" },
     activite_apprentissage: { type: "string" },
-
-    // Champ textuel conservé pour compatibilité.
     deroulement: { type: "string" },
 
-    // Données structurées pour le véritable tableau Android.
     tableau_deroulement: {
       type: "array",
       items: schemaLigneDeroulement
@@ -257,7 +409,7 @@ const schemaCours = {
 };
 
 // ============================================================
-// SCHEMA DE GENERATION DES EXERCICES
+// SCHEMA DES EXERCICES
 // ============================================================
 
 const schemaExercices = {
@@ -318,79 +470,282 @@ const schemaExercices = {
 };
 
 // ============================================================
-// OUTILS GENERAUX
+// APPEL OPENAI AVEC JSON STRUCTURE
 // ============================================================
 
-function texte(valeur, defaut = "") {
-  if (valeur === null || valeur === undefined) {
-    return defaut;
-  }
+async function appelerOpenAI(
+  instructions,
+  schema,
+  nomSchema
+) {
+  verifierCleAPI();
 
-  if (typeof valeur === "string") {
-    return valeur.trim() || defaut;
-  }
+  const reponse = await openai.responses.create({
+    model: MODEL,
 
-  if (
-    typeof valeur === "number" ||
-    typeof valeur === "boolean"
-  ) {
-    return String(valeur);
-  }
+    instructions:
+      "Tu es un spécialiste de pédagogie et de didactique. " +
+      "Tu produis des ressources scolaires adaptées au Niger. " +
+      "Tu dois respecter précisément la demande de l'enseignant, " +
+      "notamment chaque objectif sélectionné. " +
+      "N'invente jamais de faits ou de références documentaires. " +
+      "Respecte strictement le schéma JSON fourni.",
 
-  return defaut;
-}
+    input: instructions,
 
-function extraireRequete(body) {
-  const r =
-    body && typeof body === "object"
-      ? body
-      : {};
+    text: {
+      format: {
+        type: "json_schema",
+        name: nomSchema,
+        strict: true,
+        schema
+      }
+    }
+  });
 
-  return {
-    classe: texte(
-      r.classe || r.niveau_scolaire,
-      "Non précisée"
-    ),
-    matiere: texte(
-      r.matiere || r.discipline,
-      "Non précisée"
-    ),
-    serie: texte(r.serie, ""),
-    chapitre: texte(
-      r.chapitre || r.lecon || r.titre,
-      "À déterminer"
-    ),
-    theme: texte(r.theme, ""),
-    duree: texte(r.duree, "À préciser"),
-    niveau: texte(r.niveau, ""),
-    type: texte(r.type, ""),
-    nombre: Number(r.nombre) || 5,
-    details: texte(
-      r.demande ||
-      r.description ||
-      r.contenu ||
-      r.prompt ||
-      r.instruction,
-      ""
-    )
-  };
-}
+  const sortie = reponse.output_text;
 
-function verifierCleAPI() {
-  if (!process.env.OPENAI_API_KEY) {
+  if (!sortie || !sortie.trim()) {
     throw new Error(
-      "La variable OPENAI_API_KEY est absente des variables d'environnement."
+      "L'API a renvoyé une réponse vide."
     );
   }
+
+  try {
+    return JSON.parse(sortie);
+  } catch (erreur) {
+    throw new Error(
+      "Impossible de lire le JSON renvoyé par l'IA : " +
+      erreur.message
+    );
+  }
+}
+
+// ============================================================
+// CONSTRUCTION DES INSTRUCTIONS DU COURS
+// ============================================================
+
+function construireInstructionsCours(r) {
+  const listeObjectifs =
+    r.objectifsSelectionnes.length > 0
+      ? r.objectifsSelectionnes
+          .map((objectif, index) =>
+            `${index + 1}. ${objectif}`
+          )
+          .join("\n")
+      : "Aucun objectif reçu dans le champ dédié.";
+
+  return `
+CIFON PEDAGOGIE NIGER
+FICHE PEDAGOGIQUE DETAILLEE
+
+INFORMATIONS :
+Classe : ${r.classe}
+Matière : ${r.matiere}
+Série : ${r.serie || "Non précisée"}
+Chapitre : ${r.chapitre}
+Thème : ${r.theme || "Non précisé"}
+Durée : ${r.duree}
+Niveau : ${r.niveau || "Non précisé"}
+
+CONTENU DU PROGRAMME :
+${r.contenuProgramme || "Non transmis."}
+
+SOURCE DU PROGRAMME :
+${r.sourceProgramme || "Non précisée."}
+
+PRECISIONS DE L'ENSEIGNANT :
+${r.details || "Aucune."}
+
+============================================================
+OBJECTIFS SELECTIONNES PAR L'ENSEIGNANT
+============================================================
+
+${listeObjectifs}
+
+============================================================
+REGLE PRIORITAIRE : RESPECT EXACT DES OBJECTIFS
+============================================================
+
+Les objectifs sélectionnés ci-dessus constituent la priorité
+pédagogique de cette préparation.
+
+Tu dois impérativement :
+
+1. Traiter chaque objectif sélectionné, sans en oublier un.
+2. Conserver le sens de chaque objectif et ne pas le remplacer
+   par un objectif général différent.
+3. Faire apparaître tous les objectifs sélectionnés dans
+   le champ objectifs_specifiques.
+4. Organiser la trace écrite pour répondre explicitement
+   à chacun des objectifs.
+5. Si un objectif demande de DÉFINIR une notion, écrire
+   une véritable définition explicite, complète et correcte.
+   Ne pas se contenter d'un exemple, d'une description ou
+   d'une phrase qui évoque simplement la notion.
+6. Si un objectif demande d'IDENTIFIER, nommer les éléments
+   attendus et expliquer comment les reconnaître.
+7. Si un objectif demande de CONSTRUIRE, présenter les étapes
+   précises de construction.
+8. Si un objectif demande de CALCULER, montrer la méthode,
+   les formules utiles, les opérations et les unités.
+9. Si un objectif demande de DÉMONTRER ou JUSTIFIER,
+   développer le raisonnement étape par étape.
+10. Si un objectif demande de CITER ou ÉNUMÉRER,
+    fournir explicitement la liste attendue.
+11. Si un objectif demande de COMPARER, faire ressortir
+    les ressemblances et les différences.
+12. Donner au moins un exemple pertinent pour chaque notion
+    importante introduite par les objectifs.
+13. Construire les exercices et l'évaluation à partir
+    des objectifs sélectionnés.
+14. Donner les corrections détaillées de tous les exercices.
+15. Ne pas affirmer qu'un objectif est traité si la définition,
+    l'explication ou la méthode correspondante est absente.
+
+EXEMPLE DE COMPORTEMENT ATTENDU :
+Si l'objectif sélectionné est « Définir le cube »,
+la trace écrite doit contenir une rubrique « Définition du cube »
+avec une définition mathématique explicite.
+Une simple phrase parlant d'un cube ne suffit pas.
+
+Si l'objectif sélectionné est « Identifier les faces, les arêtes
+et les sommets du cube », la trace écrite doit expliquer ces
+trois éléments et permettre de les reconnaître.
+
+Ne pas utiliser cet exemple comme contenu obligatoire si
+la leçon demandée porte sur un autre sujet. Appliquer la même
+logique au véritable contenu de chaque objectif.
+
+Si aucun objectif n'a été reçu dans le champ dédié, examiner
+les précisions de l'enseignant et le contenu du programme.
+Ne prétends pas avoir reçu une liste d'objectifs cochés
+si elle est absente de la demande.
+
+============================================================
+EXIGENCES DE LA FICHE PEDAGOGIQUE
+============================================================
+
+A. IDENTIFICATION
+Fournir le titre, la classe, la matière, le chapitre et la durée.
+
+B. PREREQUIS
+Préciser les connaissances indispensables avant la leçon.
+
+C. OBJECTIF GENERAL
+Formuler un objectif général observable et cohérent
+avec les objectifs sélectionnés.
+
+D. OBJECTIFS SPECIFIQUES
+Reprendre fidèlement tous les objectifs sélectionnés.
+Ne pas les remplacer par des formulations différentes.
+S'il n'y a aucun objectif transmis, proposer des objectifs
+pertinents et ne pas les présenter comme sélectionnés.
+
+E. JUSTIFICATION
+Expliquer l'intérêt de la leçon et sa place dans l'apprentissage.
+
+F. MATERIEL DIDACTIQUE
+Préciser le matériel nécessaire et son utilisation.
+
+G. REFERENCES
+Ne pas inventer de manuel, d'auteur, de page, d'année ou de lien.
+Si une source n'est pas connue, indiquer qu'elle doit être vérifiée.
+Ne pas affirmer qu'une source a été consultée si ce n'est pas le cas.
+
+H. SITUATION-PROBLEME
+Créer une situation adaptée au niveau, avec un contexte,
+des données suffisantes et une question claire.
+
+I. ACTIVITE D'APPRENTISSAGE
+Décrire les consignes de l'enseignant, les recherches des élèves,
+les réponses attendues et la mise en commun.
+
+J. DEROULEMENT
+Le champ deroulement doit résumer le déroulement de la séance.
+
+Le champ tableau_deroulement doit contenir au moins cinq étapes
+pertinentes, avec :
+- phase ;
+- duree ;
+- objectif ;
+- activites_enseignant ;
+- activites_eleves ;
+- observations.
+
+Les activités doivent être spécifiques à la leçon et aux objectifs.
+Éviter les phrases vagues et les répétitions.
+La somme des durées doit être cohérente avec la durée totale.
+
+K. TRACE ECRITE
+Rédiger une véritable leçon que l'élève peut copier dans son cahier.
+Elle doit être autonome, structurée, progressive et suffisamment
+détaillée pour répondre aux objectifs sélectionnés.
+
+Inclure les définitions, propriétés, règles, formules, méthodes,
+exemples et conclusions nécessaires selon la discipline.
+
+Ne pas remplacer une définition par une simple activité.
+Ne pas remplacer une explication par un titre.
+Ne pas omettre les éléments demandés par les objectifs.
+
+L. TRACE STRUCTUREE
+Créer plusieurs blocs utiles et ordonnés :
+heading, subheading, paragraph, list, table ou diagram.
+
+Tous les champs requis doivent être présents.
+Les champs non utilisés doivent contenir des chaînes vides
+ou des tableaux vides.
+
+M. EXERCICES
+Proposer des exercices progressifs qui vérifient réellement
+les objectifs sélectionnés.
+Les consignes doivent être claires et les données suffisantes.
+
+N. CORRECTIONS
+Corriger tous les exercices, dans le même ordre.
+Expliquer le raisonnement et les calculs.
+
+O. EVALUATION
+Proposer des questions permettant de vérifier chaque objectif.
+Fournir les réponses attendues ou les critères de réussite.
+
+P. DEVOIR A LA MAISON
+Proposer un travail réalisable et adapté à la classe.
+
+============================================================
+CONTROLE PEDAGOGIQUE AVANT REPONSE
+============================================================
+
+Avant de produire le JSON final, vérifie silencieusement :
+
+- Chaque objectif sélectionné est-il présent dans
+  objectifs_specifiques ?
+- La trace écrite répond-elle à chacun des objectifs ?
+- Les définitions demandées sont-elles écrites explicitement ?
+- Les méthodes et propriétés demandées sont-elles expliquées ?
+- Les exercices portent-ils sur ces objectifs ?
+- Les corrections sont-elles complètes ?
+- L'évaluation vérifie-t-elle ces objectifs ?
+- Les activités sont-elles adaptées à la classe et à la durée ?
+- Les références non vérifiées sont-elles clairement signalées ?
+
+Corrige toute omission avant de produire la réponse.
+
+Respecte strictement le schéma JSON.
+Ne fournis aucun texte en dehors du JSON.
+`;
 }
 
 // ============================================================
 // VALIDATION DU COURS
 // ============================================================
 
-function verifierCours(cours) {
+function verifierCours(cours, requete) {
   if (!cours || typeof cours !== "object") {
-    throw new Error("Le cours généré est vide ou invalide.");
+    throw new Error(
+      "Le cours généré est vide ou invalide."
+    );
   }
 
   const champsObligatoires = [
@@ -412,10 +767,18 @@ function verifierCours(cours) {
   for (const champ of champsObligatoires) {
     if (!texte(cours[champ])) {
       throw new Error(
-        "Le cours généré ne contient pas le champ obligatoire : " +
+        "Le cours ne contient pas le champ obligatoire : " +
         champ
       );
     }
+  }
+
+  if (
+    !Array.isArray(cours.objectifs_specifiques)
+  ) {
+    throw new Error(
+      "Les objectifs spécifiques sont absents ou invalides."
+    );
   }
 
   if (
@@ -447,11 +810,9 @@ function verifierCours(cours) {
     }
   }
 
-  if (
-    !Array.isArray(cours.references_detaillees)
-  ) {
+  if (!Array.isArray(cours.references_detaillees)) {
     throw new Error(
-      "Le tableau des références détaillées est invalide."
+      "Les références détaillées sont invalides."
     );
   }
 
@@ -506,217 +867,48 @@ function verifierCours(cours) {
     }
   }
 
-  return cours;
-}
+  // Vérification de la présence des objectifs sélectionnés.
+  // La comparaison normalise les espaces et la casse.
+  const normaliser = (valeur) =>
+    texte(valeur)
+      .toLocaleLowerCase("fr")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
 
-// ============================================================
-// APPEL A L'API OPENAI
-// ============================================================
+  if (
+    requete &&
+    requete.objectifsSelectionnes.length > 0
+  ) {
+    const objectifsGeneres =
+      cours.objectifs_specifiques.map(normaliser);
 
-async function appelerOpenAI(
-  instructions,
-  schema,
-  nomSchema
-) {
-  verifierCleAPI();
+    const objectifsAbsents =
+      requete.objectifsSelectionnes.filter(
+        (objectif) => {
+          const cible = normaliser(objectif);
 
-  const reponse = await openai.responses.create({
-    model: MODEL,
+          return !objectifsGeneres.some(
+            (genere) =>
+              genere === cible ||
+              genere.includes(cible) ||
+              cible.includes(genere)
+          );
+        }
+      );
 
-    instructions:
-      "Tu es un expert en pédagogie, en didactique et en conception " +
-      "de ressources éducatives adaptées au Niger. " +
-      "Produis des contenus exacts, riches, progressifs et directement " +
-      "exploitables par un enseignant. Respecte strictement le schéma JSON.",
-
-    input: instructions,
-
-    text: {
-      format: {
-        type: "json_schema",
-        name: nomSchema,
-        strict: true,
-        schema: schema
-      }
+    if (objectifsAbsents.length > 0) {
+      throw new Error(
+        "Le cours ne reprend pas fidèlement tous les objectifs sélectionnés. " +
+        "Objectifs absents ou reformulés : " +
+        objectifsAbsents.join(" ; ") +
+        ". Vérifie la transmission des objectifs depuis Android."
+      );
     }
-  });
-
-  const sortie = reponse.output_text;
-
-  if (!sortie || !sortie.trim()) {
-    throw new Error("L'API a renvoyé une réponse vide.");
   }
 
-  try {
-    return JSON.parse(sortie);
-  } catch (erreur) {
-    throw new Error(
-      "Impossible de lire le JSON renvoyé par l'IA : " +
-      erreur.message
-    );
-  }
-}
-
-// ============================================================
-// INSTRUCTIONS DE GENERATION DU COURS
-// ============================================================
-
-function construireInstructionsCours(r) {
-  return `
-MISSION :
-Préparer une fiche pédagogique complète, rigoureuse, détaillée
-et directement exploitable dans une classe au Niger.
-
-INFORMATIONS :
-- Classe : ${r.classe}
-- Matière : ${r.matiere}
-- Série : ${r.serie || "Non précisée"}
-- Chapitre : ${r.chapitre}
-- Thème : ${r.theme || "Aucun"}
-- Durée : ${r.duree}
-- Niveau : ${r.niveau || "Non précisé"}
-- Précisions : ${r.details || "Aucune"}
-
-REGLES GENERALES :
-1. Adapter les contenus au niveau réel des élèves.
-2. Respecter les connaissances préalables.
-3. Employer des exemples concrets adaptés au Niger.
-4. Donner des explications suffisamment détaillées.
-5. Éviter les répétitions et les phrases vagues.
-6. Ne pas inventer de source officielle, d'auteur, de page ou de lien.
-7. Distinguer clairement les informations connues de celles à vérifier.
-
-A. IDENTIFICATION
-Fournir le titre, la classe, la matière, le chapitre et la durée.
-
-B. PREREQUIS
-Présenter les connaissances nécessaires à l'apprentissage.
-
-C. OBJECTIF GENERAL
-Formuler un objectif observable et adapté au niveau.
-
-D. OBJECTIFS SPECIFIQUES
-Donner plusieurs objectifs mesurables avec des verbes d'action.
-
-E. JUSTIFICATION
-Expliquer l'intérêt de la leçon dans la progression, les apprentissages
-futurs et la vie courante.
-
-F. MATERIEL DIDACTIQUE
-Distinguer le matériel indispensable du matériel facultatif.
-
-G. REFERENCES ET SOURCES DOCUMENTAIRES
-
-Le champ references doit présenter clairement les références disponibles.
-Le champ references_detaillees doit contenir des objets structurés.
-
-Pour chaque source, préciser :
-- type_source ;
-- titre ;
-- auteur_ou_organisme ;
-- date_ou_edition ;
-- pages ;
-- url ;
-- statut_verification ;
-- utilite.
-
-Types de sources autorisés :
-programme_officiel, manuel_scolaire, site_web, autre, a_verifier.
-
-Statuts autorisés :
-information_connue, lien_fourni_non_verifie, a_verifier.
-
-Pour le programme officiel du Niger, préciser la classe et la matière
-lorsque ces informations sont connues. Ne pas inventer de titre officiel,
-d'année d'édition ou de numéro de page.
-
-Pour les manuels, ne fournir le titre, les auteurs, l'éditeur et les pages
-que lorsque ces informations sont connues.
-
-Pour les sites internet, donner le nom du site et le lien direct seulement
-si l'adresse est connue. Un lien proposé mais non vérifié doit porter
-le statut lien_fourni_non_verifie. Ne jamais affirmer qu'une page a été
-consultée si sa consultation n'a pas été effectuée.
-
-Si aucune référence précise n'est connue, créer une entrée de type
-a_verifier, avec un titre indiquant que les références officielles
-doivent être vérifiées, une URL vide et un statut a_verifier.
-
-Ne pas présenter une source recommandée comme une source effectivement
-consultée. Ne jamais fabriquer de références pour remplir la rubrique.
-
-H. SITUATION-PROBLEME
-Créer une situation concrète avec un contexte, des données et une question.
-
-I. ACTIVITE D'APPRENTISSAGE
-Décrire les activités, les questions, les recherches et les réponses attendues.
-
-J. DEROULEMENT DE LA SEANCE
-
-Le champ deroulement doit contenir un résumé textuel du déroulement.
-
-Le champ tableau_deroulement doit contenir au minimum cinq lignes
-pédagogiques structurées, sauf si la nature de la leçon justifie autrement.
-
-Chaque ligne doit renseigner exactement :
-- phase : nom de l'étape ;
-- duree : durée indicative de l'étape ;
-- objectif : objectif de l'étape ;
-- activites_enseignant : actions et consignes précises de l'enseignant ;
-- activites_eleves : actions et réponses attendues des élèves ;
-- observations : points à vérifier, difficultés possibles ou critères de réussite.
-
-Prévoir des étapes pertinentes, par exemple :
-1. Rappel des prérequis.
-2. Présentation de la situation-problème.
-3. Recherche individuelle ou en groupes.
-4. Mise en commun et explication.
-5. Institutionnalisation ou synthèse.
-6. Exercices d'application.
-7. Évaluation, si la durée le permet.
-
-Adapter les étapes à la discipline. Les durées doivent être réalistes
-et leur somme doit être cohérente avec la durée totale annoncée.
-
-Ne pas remplir les cellules par des phrases génériques identiques.
-Les activités doivent correspondre précisément à la leçon demandée.
-
-K. TRACE ECRITE
-Fournir une leçon complète et progressive, avec définitions, règles,
-propriétés, méthodes, formules et exemples selon la discipline.
-En mathématiques, détailler les calculs et justifier les résultats.
-En sciences, distinguer observations, explications et conclusions.
-
-L. TRACE STRUCTUREE
-Créer plusieurs blocs ordonnés :
-heading, subheading, paragraph, list, table ou diagram.
-
-Tous les champs du schéma doivent être présents.
-Les champs non utilisés doivent être vides ou contenir un tableau vide.
-
-Pour les tableaux, renseigner les colonnes et des lignes cohérentes.
-Pour les figures, utiliser des coordonnées de 0 à 100.
-Les formes doivent être adaptées au sujet, et non décoratives.
-
-M. EXERCICES
-Proposer des exercices progressifs, avec des données suffisantes
-et des consignes sans ambiguïté.
-
-N. CORRECTIONS
-Corriger chaque exercice dans le même ordre avec le raisonnement détaillé.
-
-O. EVALUATION
-Vérifier les objectifs spécifiques et préciser les réponses attendues
-ou les critères de réussite.
-
-P. DEVOIR A LA MAISON
-Proposer un travail réaliste et adapté au niveau.
-
-EXIGENCE FINALE :
-Le contenu doit être substantiel, exact et pédagogique.
-Respecter strictement le schéma JSON demandé.
-Ne pas ajouter de propriétés non prévues.
-`;
+  return cours;
 }
 
 // ============================================================
@@ -741,7 +933,7 @@ app.get("/", (req, res) => {
 });
 
 // ============================================================
-// VERIFICATION DE SANTE
+// SANTE
 // ============================================================
 
 app.get("/sante", (req, res) => {
@@ -758,7 +950,7 @@ app.get("/sante", (req, res) => {
 });
 
 // ============================================================
-// TEST DE GENERATION
+// TEST GENERATION
 // ============================================================
 
 app.get("/test-generation", async (req, res) => {
@@ -775,7 +967,10 @@ app.get("/test-generation", async (req, res) => {
           titre: { type: "string" },
           explication: { type: "string" }
         },
-        required: ["titre", "explication"]
+        required: [
+          "titre",
+          "explication"
+        ]
       },
 
       "test_generation_cifon"
@@ -784,7 +979,7 @@ app.get("/test-generation", async (req, res) => {
     res.json({
       success: true,
       version: VERSION,
-      resultat: resultat
+      resultat
     });
   } catch (erreur) {
     console.error("Erreur /test-generation :", erreur);
@@ -798,7 +993,7 @@ app.get("/test-generation", async (req, res) => {
 });
 
 // ============================================================
-// GENERATION D'UN COURS COMPLET
+// GENERATION DU COURS
 // ============================================================
 
 app.post("/generer-cours", async (req, res) => {
@@ -821,7 +1016,9 @@ app.post("/generer-cours", async (req, res) => {
       "|",
       requete.matiere,
       "|",
-      requete.chapitre
+      requete.chapitre,
+      "| Objectifs :",
+      requete.objectifsSelectionnes.length
     );
 
     const instructions =
@@ -833,7 +1030,8 @@ app.post("/generer-cours", async (req, res) => {
       "fiche_pedagogique_cifon"
     );
 
-    verifierCours(cours);
+    // Ne pas accepter silencieusement un cours incomplet.
+    verifierCours(cours, requete);
 
     cours.classe = texte(
       cours.classe,
@@ -855,16 +1053,13 @@ app.post("/generer-cours", async (req, res) => {
       requete.duree
     );
 
-    console.log(
-      "Cours généré et validé avec tableau structuré."
-    );
-
     return res.json({
       success: true,
-      cours: cours,
+      cours,
       serveur: "CIFON PEDAGOGIE NIGER",
       version: VERSION,
-      modele: MODEL
+      modele: MODEL,
+      objectifs_recus: requete.objectifsSelectionnes.length
     });
   } catch (erreur) {
     console.error("Erreur /generer-cours :", erreur);
@@ -880,7 +1075,7 @@ app.post("/generer-cours", async (req, res) => {
 });
 
 // ============================================================
-// GENERATION D'EXERCICES ET DE CORRECTIONS
+// GENERATION DES EXERCICES
 // ============================================================
 
 app.post("/generer-exercices", async (req, res) => {
@@ -902,25 +1097,39 @@ app.post("/generer-exercices", async (req, res) => {
       20
     );
 
+    const objectifs =
+      requete.objectifsSelectionnes.length > 0
+        ? requete.objectifsSelectionnes
+            .map((objectif, index) =>
+              `${index + 1}. ${objectif}`
+            )
+            .join("\n")
+        : "Aucun objectif sélectionné transmis.";
+
     const instructions = `
-Tu es un expert en didactique et en évaluations scolaires.
+Tu es un spécialiste en didactique et en évaluation scolaire.
 
-Génère ${nombre} exercices adaptés à des élèves de
-${requete.classe}, en ${requete.matiere}.
-
+Classe : ${requete.classe}
+Matière : ${requete.matiere}
 Chapitre : ${requete.chapitre}
-Thème : ${requete.theme || "À déterminer"}
+Thème : ${requete.theme || "Non précisé"}
 Précisions : ${requete.details || "Aucune"}
 
-CONSIGNES :
-1. Proposer des exercices progressifs et compréhensibles.
-2. Adapter les données et le vocabulaire au niveau scolaire.
-3. Vérifier l'exactitude des réponses.
-4. Donner une correction complète pour chaque exercice.
-5. Expliquer les étapes de raisonnement et les calculs.
-6. Numéroter les exercices et corrections de façon cohérente.
-7. Ne pas inventer de références officielles.
-8. Respecter strictement le format JSON demandé.
+OBJECTIFS SELECTIONNES :
+${objectifs}
+
+Génère ${nombre} exercices progressifs adaptés à la classe.
+
+Les exercices doivent vérifier directement les objectifs sélectionnés.
+Ne remplace pas ces objectifs par d'autres.
+Si un objectif demande une définition, inclure une question
+demandant explicitement cette définition.
+Si un objectif demande une méthode ou un calcul, inclure
+un exercice qui vérifie cette méthode ou ce calcul.
+
+Donne une correction détaillée pour chaque exercice.
+Vérifie les réponses et les calculs.
+Respecte strictement le schéma JSON.
 `;
 
     const resultat = await appelerOpenAI(
@@ -949,7 +1158,7 @@ CONSIGNES :
 
     return res.json({
       success: true,
-      resultat: resultat,
+      resultat,
       exercices: resultat.exercices,
       corrections: resultat.corrections,
       serveur: "CIFON PEDAGOGIE NIGER",
@@ -986,7 +1195,7 @@ app.use((req, res) => {
 });
 
 // ============================================================
-// GESTION DES ERREURS EXPRESS
+// GESTION DES ERREURS
 // ============================================================
 
 app.use((erreur, req, res, next) => {
@@ -998,13 +1207,15 @@ app.use((erreur, req, res, next) => {
 
   res.status(500).json({
     success: false,
-    erreur: "Une erreur interne est survenue.",
+    erreur:
+      erreur.message ||
+      "Une erreur interne est survenue.",
     version: VERSION
   });
 });
 
 // ============================================================
-// DEMARRAGE DU SERVEUR
+// DEMARRAGE
 // ============================================================
 
 app.listen(PORT, () => {
