@@ -2,9 +2,41 @@
 
 const express = require("express");
 const OpenAI = require("openai");
+const { Pool } = require("pg");
 
 const app = express();
+
 app.use(express.json({ limit: "2mb" }));
+
+// ============================================================
+// CONNEXION POSTGRESQL — CIFON PEDAGOGIE NIGER
+// ============================================================
+
+const pool = process.env.DATABASE_URL
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 10000
+    })
+  : null;
+
+// Vérification de la connexion sans bloquer le démarrage.
+if (pool) {
+  pool.query("SELECT NOW()")
+    .then(() => {
+      console.log("PostgreSQL : connexion réussie.");
+    })
+    .catch((erreur) => {
+      console.error(
+        "PostgreSQL : connexion impossible :",
+        erreur.message
+      );
+    });
+} else {
+  console.error(
+    "PostgreSQL : la variable DATABASE_URL est absente."
+  );
+}
 
 // ============================================================
 // CIFON PEDAGOGIE NIGER
