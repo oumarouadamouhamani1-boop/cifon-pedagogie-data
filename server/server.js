@@ -37,6 +37,45 @@ if (pool) {
     "PostgreSQL : la variable DATABASE_URL est absente."
   );
 }
+// ============================================================
+// INITIALISATION DE LA BASE DES UTILISATEURS
+// ============================================================
+
+async function initialiserBaseUtilisateurs() {
+  if (!pool) {
+    throw new Error(
+      "La connexion PostgreSQL n'est pas configurée."
+    );
+  }
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS utilisateurs (
+      id BIGSERIAL PRIMARY KEY,
+
+      telephone VARCHAR(30) NOT NULL UNIQUE,
+
+      mot_de_passe_hash TEXT NOT NULL,
+
+      code_acces_hash TEXT NOT NULL UNIQUE,
+
+      statut VARCHAR(20) NOT NULL DEFAULT 'actif'
+        CHECK (statut IN ('actif', 'suspendu', 'expire')),
+
+      role VARCHAR(20) NOT NULL DEFAULT 'testeur'
+        CHECK (role IN ('admin', 'testeur', 'abonne')),
+
+      date_expiration TIMESTAMPTZ,
+
+      cree_le TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+      modifie_le TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  console.log(
+    "PostgreSQL : table utilisateurs vérifiée."
+  );
+}
 
 // ============================================================
 // CIFON PEDAGOGIE NIGER
