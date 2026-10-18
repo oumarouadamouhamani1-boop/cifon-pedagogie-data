@@ -1286,18 +1286,44 @@ app.use((erreur, req, res, next) => {
 });
 
 // ============================================================
-// DEMARRAGE
+// DEMARRAGE DU SERVEUR
 // ============================================================
 
-app.listen(PORT, () => {
-  console.log("============================================");
-  console.log(" CIFON PEDAGOGIE NIGER");
-  console.log(" Serveur démarré sur le port " + PORT);
-  console.log(" Version : " + VERSION);
-  console.log(" Modèle : " + MODEL);
-  console.log(
-    " Clé API configurée : " +
-    Boolean(process.env.OPENAI_API_KEY)
-  );
-  console.log("============================================");
-});
+async function demarrerServeur() {
+  try {
+    if (!pool) {
+      throw new Error(
+        "DATABASE_URL est absente des variables d'environnement."
+      );
+    }
+
+    await pool.query("SELECT NOW()");
+    console.log("PostgreSQL : connexion réussie.");
+
+    await initialiserBaseUtilisateurs();
+
+    app.listen(PORT, () => {
+      console.log("============================================");
+      console.log(" CIFON PEDAGOGIE NIGER");
+      console.log(" Serveur démarré sur le port " + PORT);
+      console.log(" Version : " + VERSION);
+      console.log(" Modèle : " + MODEL);
+      console.log(
+        " Clé API configurée : " +
+        Boolean(process.env.OPENAI_API_KEY)
+      );
+      console.log(" Base de données : connectée");
+      console.log(" Table utilisateurs : prête");
+      console.log("============================================");
+    });
+  } catch (erreur) {
+    console.error(
+      "Erreur au démarrage de CIFON PEDAGOGIE NIGER :",
+      erreur.message
+    );
+
+    process.exit(1);
+  }
+}
+
+demarrerServeur();
