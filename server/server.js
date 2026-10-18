@@ -3,6 +3,7 @@
 const express = require("express");
 const OpenAI = require("openai");
 const { Pool } = require("pg");
+const creerRouteAdmin = require("./admin");
 
 const app = express();
 
