@@ -1,6 +1,7 @@
 "use strict";
 
 const express = require("express");
+const cookieParser = require("cookie-parser");
 const OpenAI = require("openai");
 const { Pool } = require("pg");
 const creerRouteAdmin = require("./admin");
@@ -8,6 +9,7 @@ const creerRouteAdmin = require("./admin");
 const app = express();
 
 app.use(express.json({ limit: "2mb" }));
+app.use(cookieParser());
 
 // ============================================================
 // CONNEXION POSTGRESQL — CIFON PEDAGOGIE NIGER
