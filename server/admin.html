@@ -1,1 +1,411 @@
 
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Administration — CIFON Pédagogie Niger</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f2f5f9;
+            margin: 0;
+            padding: 20px;
+            color: #222;
+        }
+
+        .conteneur {
+            max-width: 750px;
+            margin: 25px auto;
+        }
+
+        .carte {
+            background: white;
+            padding: 22px;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px #00000012;
+        }
+
+        h1, h2 {
+            color: #14532d;
+        }
+
+        label {
+            display: block;
+            margin-top: 14px;
+            font-weight: bold;
+        }
+
+        input, select, button {
+            box-sizing: border-box;
+            width: 100%;
+            padding: 12px;
+            margin-top: 8px;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+
+        input, select {
+            border: 1px solid #ccc;
+        }
+
+        button {
+            border: none;
+            background: #166534;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: #14532d;
+        }
+
+        .secondaire {
+            background: #475569;
+        }
+
+        .message {
+            margin-top: 15px;
+            overflow-wrap: anywhere;
+        }
+
+        .code {
+            background: #ecfdf5;
+            border: 1px solid #86efac;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 8px;
+            overflow-wrap: anywhere;
+        }
+
+        .cache {
+            display: none;
+        }
+
+        .tableau {
+            overflow-x: auto;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            font-size: 14px;
+        }
+
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background: #e8f5e9;
+        }
+
+        .petit {
+            color: #555;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+
+<body>
+<div class="conteneur">
+
+    <h1>CIFON Pédagogie Niger</h1>
+    <p>Administration des accès des testeurs</p>
+
+    <section class="carte" id="connexion">
+        <h2>Connexion administrateur</h2>
+
+        <form id="formConnexion">
+            <label for="motDePasse">Mot de passe administrateur</label>
+            <input
+                type="password"
+                id="motDePasse"
+                autocomplete="current-password"
+                required
+            >
+
+            <button type="submit">Se connecter</button>
+        </form>
+
+        <p id="messageConnexion" class="message"></p>
+    </section>
+
+    <main id="administration" class="cache">
+
+        <section class="carte">
+            <h2>Générer un code d'accès</h2>
+
+            <form id="formCode">
+                <label for="duree">Durée de l'accès</label>
+
+                <select id="duree" required>
+                    <option value="30">30 jours</option>
+                    <option value="60">60 jours</option>
+                    <option value="90">90 jours</option>
+                </select>
+
+                <button type="submit">Générer le code</button>
+            </form>
+
+            <div id="resultatCode" class="message"></div>
+
+            <p class="petit">
+                Copie le code généré et envoie-le au testeur.
+                Le code secret ne sera affiché qu'au moment de sa création.
+            </p>
+        </section>
+
+        <section class="carte">
+            <h2>Codes créés</h2>
+
+            <button id="actualiser" type="button" class="secondaire">
+                Actualiser la liste
+            </button>
+
+            <div class="tableau">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Statut</th>
+                            <th>Durée</th>
+                            <th>Création</th>
+                            <th>Activation</th>
+                            <th>Expiration</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="listeCodes">
+                        <tr>
+                            <td colspan="6">Aucune donnée chargée.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <p id="messageListe" class="message"></p>
+        </section>
+
+        <section class="carte">
+            <button id="deconnexion" type="button" class="secondaire">
+                Se déconnecter
+            </button>
+        </section>
+
+    </main>
+</div>
+
+<script>
+    const connexion = document.getElementById("connexion");
+    const administration = document.getElementById("administration");
+
+    async function requete(url, options = {}) {
+        const reponse = await fetch(url, {
+            credentials: "same-origin",
+            ...options,
+            headers: {
+                "Content-Type": "application/json",
+                ...(options.headers || {})
+            }
+        });
+
+        const donnees = await reponse.json().catch(() => ({}));
+
+        if (!reponse.ok) {
+            throw new Error(
+                donnees.message || "Une erreur est survenue."
+            );
+        }
+
+        return donnees;
+    }
+
+    function afficherConnecte() {
+        connexion.classList.add("cache");
+        administration.classList.remove("cache");
+    }
+
+    function afficherDeconnecte() {
+        administration.classList.add("cache");
+        connexion.classList.remove("cache");
+    }
+
+    document.getElementById("formConnexion")
+        .addEventListener("submit", async function(event) {
+            event.preventDefault();
+
+            const message =
+                document.getElementById("messageConnexion");
+
+            message.textContent = "Connexion en cours...";
+
+            try {
+                await requete("/api/admin/login", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        motDePasse:
+                            document.getElementById("motDePasse").value
+                    })
+                });
+
+                document.getElementById("motDePasse").value = "";
+                message.textContent = "";
+                afficherConnecte();
+                await chargerCodes();
+
+            } catch (erreur) {
+                message.textContent = erreur.message;
+            }
+        });
+
+    document.getElementById("formCode")
+        .addEventListener("submit", async function(event) {
+            event.preventDefault();
+
+            const resultat =
+                document.getElementById("resultatCode");
+
+            resultat.textContent = "Création du code en cours...";
+
+            try {
+                const donnees = await requete("/api/admin/codes", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        dureeJours:
+                            Number(document.getElementById("duree").value)
+                    })
+                });
+
+                resultat.innerHTML = "";
+
+                const bloc = document.createElement("div");
+                bloc.className = "code";
+
+                const titre = document.createElement("strong");
+                titre.textContent = "Nouveau code d'accès :";
+
+                const code = document.createElement("p");
+                code.textContent = donnees.code;
+
+                const duree = document.createElement("p");
+                duree.textContent =
+                    "Durée prévue : " + donnees.dureeJours + " jours";
+
+                const bouton = document.createElement("button");
+                bouton.type = "button";
+                bouton.textContent = "Copier le code";
+
+                bouton.addEventListener("click", async function() {
+                    try {
+                        await navigator.clipboard.writeText(donnees.code);
+                        bouton.textContent = "Code copié !";
+                    } catch (erreur) {
+                        code.textContent =
+                            donnees.code +
+                            " — Sélectionne et copie ce texte manuellement.";
+                    }
+                });
+
+                bloc.append(titre, code, duree, bouton);
+                resultat.appendChild(bloc);
+
+                await chargerCodes();
+
+            } catch (erreur) {
+                resultat.textContent = erreur.message;
+            }
+        });
+
+    async function chargerCodes() {
+        const liste = document.getElementById("listeCodes");
+        const message = document.getElementById("messageListe");
+
+        liste.replaceChildren();
+        message.textContent = "Chargement...";
+
+        try {
+            const donnees = await requete("/api/admin/codes");
+
+            if (!donnees.codes.length) {
+                const ligne = document.createElement("tr");
+                const cellule = document.createElement("td");
+                cellule.colSpan = 6;
+                cellule.textContent = "Aucun code créé.";
+                ligne.appendChild(cellule);
+                liste.appendChild(ligne);
+            }
+
+            donnees.codes.forEach(function(code) {
+                const ligne = document.createElement("tr");
+
+                [
+                    code.id,
+                    code.statut,
+                    code.duree_jours + " jours",
+                    formaterDate(code.cree_le),
+                    formaterDate(code.active_le),
+                    formaterDate(code.date_expiration)
+                ].forEach(function(valeur) {
+                    const cellule = document.createElement("td");
+                    cellule.textContent =
+                        valeur === null || valeur === undefined
+                            ? "—"
+                            : String(valeur);
+
+                    ligne.appendChild(cellule);
+                });
+
+                liste.appendChild(ligne);
+            });
+
+            message.textContent = "";
+
+        } catch (erreur) {
+            message.textContent = erreur.message;
+
+            if (erreur.message.includes("Connexion")) {
+                afficherDeconnecte();
+            }
+        }
+    }
+
+    function formaterDate(valeur) {
+        if (!valeur) return "—";
+
+        const date = new Date(valeur);
+
+        if (Number.isNaN(date.getTime())) {
+            return String(valeur);
+        }
+
+        return date.toLocaleString("fr-FR");
+    }
+
+    document.getElementById("actualiser")
+        .addEventListener("click", chargerCodes);
+
+    document.getElementById("deconnexion")
+        .addEventListener("click", async function() {
+            try {
+                await requete("/api/admin/logout", {
+                    method: "POST",
+                    body: JSON.stringify({})
+                });
+            } catch (erreur) {
+                // La page sera refermée même si la session a expiré.
+            }
+
+            afficherDeconnecte();
+            document.getElementById("messageConnexion").textContent =
+                "Tu es déconnecté.";
+        });
+</script>
+</body>
+</html>
