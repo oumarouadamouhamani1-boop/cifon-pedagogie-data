@@ -20,6 +20,8 @@ const pool = process.env.DATABASE_URL
       connectionTimeoutMillis: 10000
     })
   : null;
+// Routes d'administration CIFON
+app.use(creerRouteAdmin(pool));
 
 // Vérification de la connexion sans bloquer le démarrage.
 if (pool) {
