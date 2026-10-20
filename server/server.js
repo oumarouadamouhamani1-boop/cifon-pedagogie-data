@@ -437,6 +437,7 @@ const schemaCours = {
 
     situation_probleme: { type: "string" },
     activite_apprentissage: { type: "string" },
+    solution_activite: { type: "string" },
     deroulement: { type: "string" },
 
     tableau_deroulement: {
@@ -469,6 +470,7 @@ const schemaCours = {
     "references",
     "references_detaillees",
     "situation_probleme",
+    "activite_apprentissage",
     "activite_apprentissage",
     "deroulement",
     "tableau_deroulement",
@@ -727,13 +729,28 @@ Si une source n'est pas connue, indiquer qu'elle doit être vérifiée.
 Ne pas affirmer qu'une source a été consultée si ce n'est pas le cas.
 
 H. SITUATION-PROBLEME
-Créer une situation adaptée au niveau, avec un contexte,
-des données suffisantes et une question claire.
 
-I. ACTIVITE D'APPRENTISSAGE
-Décrire les consignes de l'enseignant, les recherches des élèves,
-les réponses attendues et la mise en commun.
+Créer une situation-problème adaptée au niveau des élèves,
+avec un contexte concret, des données suffisantes et une
+question claire liée aux objectifs spécifiques sélectionnés.
 
+Le champ situation_probleme doit être une chaîne de caractères
+contenant l'énoncé complet de la situation.
+
+I. ACTIVITE D'APPRENTISSAGE ET SOLUTION
+
+Le champ activite_apprentissage doit reprendre exactement
+le même énoncé que situation_probleme.
+
+Le champ solution_activite doit contenir la résolution
+détaillée de cette situation-problème, étape par étape,
+avec les calculs, explications, raisonnements et conclusions
+nécessaires selon la discipline.
+
+La solution doit répondre explicitement à la question centrale
+de la situation-problème.
+
+Ne laisse jamais le champ solution_activite vide.
 J. DEROULEMENT
 Le champ deroulement doit résumer le déroulement de la séance.
 
@@ -872,15 +889,22 @@ function verifierCours(cours, requete) {
   ];
 
   for (const ligne of cours.tableau_deroulement) {
-    for (const champ of champsLigne) {
-      if (!texte(ligne[champ])) {
-        throw new Error(
-          "Une ligne du déroulement ne contient pas le champ : " +
-          champ
-        );
-      }
+  for (const champ of champsLigne) {
+    if (
+      champ !== "observations" &&
+      !texte(ligne[champ])
+    ) {
+      throw new Error(
+        "Une ligne du déroulement ne contient pas le champ : " +
+        champ
+      );
     }
   }
+
+  // Cette colonne doit rester vide pour que l'enseignant
+  // puisse la compléter lui-même.
+  ligne.observations = "";
+}
 
   if (!Array.isArray(cours.references_detaillees)) {
     throw new Error(
