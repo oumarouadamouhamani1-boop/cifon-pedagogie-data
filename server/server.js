@@ -827,19 +827,19 @@ function verifierCours(cours, requete) {
   const champsObligatoires = [
     "titre",
     "prerequis",
-    "objectif_general",
+    "objectifs_specifiques",
     "justification",
     "materiel_didactique",
     "references",
     "situation_probleme",
     "activite_apprentissage",
     "deroulement",
+    "solution_activite",
     "trace_ecrite",
     "exercices",
     "corrections",
     "evaluation"
-  ];
-
+];
   for (const champ of champsObligatoires) {
     if (!texte(cours[champ])) {
       throw new Error(
