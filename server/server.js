@@ -458,31 +458,29 @@ const schemaCours = {
     devoir_maison: { type: "string" }
   },
   required: [
-    "titre",
-    "classe",
-    "matiere",
-    "chapitre",
-    "duree",
-    "prerequis",
-    "objectifs_specifiques",
-    "justification",
-    "materiel_didactique",
-    "references",
-    "references_detaillees",
-    "situation_probleme",
-    "activite_apprentissage",
-    "activite_apprentissage",
-    "deroulement",
-    "tableau_deroulement",
-    "trace_ecrite",
-    "trace_structuree",
-    "exercices",
-    "corrections",
-    "evaluation",
-    "devoir_maison"
-  ]
-};
-
+  "titre",
+  "classe",
+  "matiere",
+  "chapitre",
+  "duree",
+  "prerequis",
+  "objectifs_specifiques",
+  "justification",
+  "materiel_didactique",
+  "references",
+  "references_detaillees",
+  "situation_probleme",
+  "activite_apprentissage",
+  "solution_activite",
+  "deroulement",
+  "tableau_deroulement",
+  "trace_ecrite",
+  "trace_structuree",
+  "exercices",
+  "corrections",
+  "evaluation",
+  "devoir_maison"
+]
 // ============================================================
 // SCHEMA DES EXERCICES
 // ============================================================
