@@ -421,8 +421,6 @@ const schemaCours = {
     chapitre: { type: "string" },
     duree: { type: "string" },
     prerequis: { type: "string" },
-    objectif_general: { type: "string" },
-
     objectifs_specifiques: {
       type: "array",
       items: { type: "string" }
@@ -465,7 +463,6 @@ const schemaCours = {
     "chapitre",
     "duree",
     "prerequis",
-    "objectif_general",
     "objectifs_specifiques",
     "justification",
     "materiel_didactique",
