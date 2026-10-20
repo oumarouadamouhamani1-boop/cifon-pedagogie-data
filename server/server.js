@@ -824,7 +824,6 @@ function verifierCours(cours, requete) {
   const champsObligatoires = [
     "titre",
     "prerequis",
-    "objectifs_specifiques",
     "justification",
     "materiel_didactique",
     "references",
