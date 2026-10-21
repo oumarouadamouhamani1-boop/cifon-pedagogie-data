@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -110,6 +109,22 @@
             font-size: 14px;
             line-height: 1.5;
         }
+
+        .compteur {
+            background: #ecfdf5;
+            border: 1px solid #86efac;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .nombre {
+            font-size: 42px;
+            font-weight: bold;
+            color: #166534;
+            margin: 10px 0;
+        }
     </style>
 </head>
 
@@ -117,7 +132,7 @@
 <div class="conteneur">
 
     <h1>CIFON Pédagogie Niger</h1>
-    <p>Administration des accès des testeurs</p>
+    <p>Administration des accès et des utilisateurs</p>
 
     <section class="carte" id="connexion">
         <h2>Connexion administrateur</h2>
@@ -139,6 +154,31 @@
 
     <main id="administration" class="cache">
 
+        <!-- COMPTEUR DES UTILISATEURS -->
+        <section class="carte">
+            <h2>Utilisateurs inscrits</h2>
+
+            <p class="petit">
+                Nombre total de comptes enregistrés dans la base de données.
+            </p>
+
+            <div class="compteur">
+                <div id="nombreUtilisateurs" class="nombre">—</div>
+                <p id="messageUtilisateurs" class="message">
+                    En attente de vérification.
+                </p>
+            </div>
+
+            <button
+                id="actualiserUtilisateurs"
+                type="button"
+                class="secondaire"
+            >
+                Actualiser le nombre d'utilisateurs
+            </button>
+        </section>
+
+        <!-- GENERATION DES CODES -->
         <section class="carte">
             <h2>Générer un code d'accès</h2>
 
@@ -162,6 +202,7 @@
             </p>
         </section>
 
+        <!-- LISTE DES CODES -->
         <section class="carte">
             <h2>Codes créés</h2>
 
@@ -220,7 +261,9 @@
 
         if (!reponse.ok) {
             throw new Error(
-                donnees.message || "Une erreur est survenue."
+                donnees.message ||
+                donnees.messageErreur ||
+                "Une erreur est survenue (HTTP " + reponse.status + ")."
             );
         }
 
@@ -237,6 +280,7 @@
         connexion.classList.remove("cache");
     }
 
+    // CONNEXION ADMINISTRATEUR
     document.getElementById("formConnexion")
         .addEventListener("submit", async function(event) {
             event.preventDefault();
@@ -258,13 +302,66 @@
                 document.getElementById("motDePasse").value = "";
                 message.textContent = "";
                 afficherConnecte();
-                await chargerCodes();
+
+                await Promise.all([
+                    chargerCodes(),
+                    chargerNombreUtilisateurs()
+                ]);
 
             } catch (erreur) {
                 message.textContent = erreur.message;
             }
         });
 
+    // COMPTER LES UTILISATEURS
+    async function chargerNombreUtilisateurs() {
+        const nombre =
+            document.getElementById("nombreUtilisateurs");
+
+        const message =
+            document.getElementById("messageUtilisateurs");
+
+        nombre.textContent = "…";
+        message.textContent = "Vérification en cours...";
+
+        try {
+            const donnees = await requete(
+                "/api/admin/utilisateurs/nombre"
+            );
+
+            if (
+                donnees.succes !== true ||
+                !Number.isFinite(donnees.nombreUtilisateurs)
+            ) {
+                throw new Error(
+                    "La réponse du serveur est invalide."
+                );
+            }
+
+            nombre.textContent = donnees.nombreUtilisateurs;
+
+            message.textContent =
+                donnees.nombreUtilisateurs === 0
+                    ? "Aucun compte utilisateur enregistré pour le moment."
+                    : "Nombre de comptes enregistré(s) dans la base.";
+
+        } catch (erreur) {
+            nombre.textContent = "—";
+            message.textContent = erreur.message;
+
+            if (erreur.message.includes("401")) {
+                afficherDeconnecte();
+            }
+        }
+    }
+
+    document.getElementById("actualiserUtilisateurs")
+        .addEventListener(
+            "click",
+            chargerNombreUtilisateurs
+        );
+
+    // GENERER UN CODE
     document.getElementById("formCode")
         .addEventListener("submit", async function(event) {
             event.preventDefault();
@@ -283,7 +380,7 @@
                     })
                 });
 
-                resultat.innerHTML = "";
+                resultat.replaceChildren();
 
                 const bloc = document.createElement("div");
                 bloc.className = "code";
@@ -323,6 +420,7 @@
             }
         });
 
+    // CHARGER LA LISTE DES CODES
     async function chargerCodes() {
         const liste = document.getElementById("listeCodes");
         const message = document.getElementById("messageListe");
@@ -333,11 +431,17 @@
         try {
             const donnees = await requete("/api/admin/codes");
 
-            if (!donnees.codes.length) {
+            if (!Array.isArray(donnees.codes)) {
+                throw new Error("La liste des codes est invalide.");
+            }
+
+            if (donnees.codes.length === 0) {
                 const ligne = document.createElement("tr");
                 const cellule = document.createElement("td");
+
                 cellule.colSpan = 6;
                 cellule.textContent = "Aucun code créé.";
+
                 ligne.appendChild(cellule);
                 liste.appendChild(ligne);
             }
@@ -354,6 +458,7 @@
                     formaterDate(code.date_expiration)
                 ].forEach(function(valeur) {
                     const cellule = document.createElement("td");
+
                     cellule.textContent =
                         valeur === null || valeur === undefined
                             ? "—"
@@ -370,7 +475,7 @@
         } catch (erreur) {
             message.textContent = erreur.message;
 
-            if (erreur.message.includes("Connexion")) {
+            if (erreur.message.includes("401")) {
                 afficherDeconnecte();
             }
         }
@@ -391,6 +496,7 @@
     document.getElementById("actualiser")
         .addEventListener("click", chargerCodes);
 
+    // DECONNEXION
     document.getElementById("deconnexion")
         .addEventListener("click", async function() {
             try {
@@ -403,6 +509,7 @@
             }
 
             afficherDeconnecte();
+
             document.getElementById("messageConnexion").textContent =
                 "Tu es déconnecté.";
         });
