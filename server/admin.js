@@ -282,6 +282,43 @@ function creerRouteAdmin(pool) {
         }
     );
 
+        // ============================================================
+    // COMPTER LES UTILISATEURS — ADMINISTRATION CIFON
+    // ============================================================
+
+    router.get(
+        "/api/admin/utilisateurs/nombre",
+        authentifierAdmin,
+        async (req, res) => {
+            try {
+                const resultat = await pool.query(
+                    "SELECT COUNT(*) AS nombre FROM utilisateurs"
+                );
+
+                return res.json({
+                    succes: true,
+                    nombreUtilisateurs: Number(
+                        resultat.rows[0].nombre
+                    ),
+                    message:
+                        "Nombre de comptes utilisateurs récupéré."
+                });
+
+            } catch (erreur) {
+                console.error(
+                    "Erreur comptage utilisateurs :",
+                    erreur.message
+                );
+
+                return res.status(500).json({
+                    succes: false,
+                    message:
+                        "Impossible de compter les utilisateurs."
+                });
+            }
+        }
+    );
+
     return router;
 }
 
