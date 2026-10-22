@@ -61,7 +61,7 @@ async function initialiserBaseUtilisateurs() {
 
       mot_de_passe_hash TEXT NOT NULL,
 
-      code_acces_hash TEXT NOT NULL UNIQUE,
+      code_acces_hash TEXT UNIQUE,
 
       statut VARCHAR(20) NOT NULL DEFAULT 'actif'
         CHECK (statut IN ('actif', 'suspendu', 'expire')),
@@ -75,6 +75,11 @@ async function initialiserBaseUtilisateurs() {
 
       modifie_le TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+  `);  
+  // Autoriser les comptes créés sans code d'accès initial.
+  await pool.query(`
+    ALTER TABLE utilisateurs
+    ALTER COLUMN code_acces_hash DROP NOT NULL;
   `);
 
   console.log(
