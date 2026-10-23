@@ -5,6 +5,7 @@ const cookieParser = require("cookie-parser");
 const OpenAI = require("openai");
 const { Pool } = require("pg");
 const creerRouteAdmin = require("./admin");
+const creerRouteUtilisateurs = require("./utilisateurs");
 
 const app = express();
 
@@ -24,6 +25,7 @@ const pool = process.env.DATABASE_URL
   : null;
 // Routes d'administration CIFON
 app.use(creerRouteAdmin(pool));
+app.use(creerRouteUtilisateurs(pool));
 
 // Vérification de la connexion sans bloquer le démarrage.
 if (pool) {
