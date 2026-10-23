@@ -83,6 +83,25 @@ async function initialiserBaseUtilisateurs() {
     ALTER TABLE utilisateurs
     ALTER COLUMN code_acces_hash DROP NOT NULL;
   `);
+    // Table des sessions sécurisées des utilisateurs.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sessions_utilisateurs (
+      id BIGSERIAL PRIMARY KEY,
+      utilisateur_id BIGINT NOT NULL
+        REFERENCES utilisateurs(id) ON DELETE CASCADE,
+      jeton_hash CHAR(64) NOT NULL UNIQUE,
+      expire_le TIMESTAMPTZ NOT NULL,
+      cree_le TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS
+    idx_sessions_utilisateurs_utilisateur
+    ON sessions_utilisateurs(utilisateur_id);
+  `);
+
+  console.log("PostgreSQL : table sessions_utilisateurs vérifiée.");
 
   console.log(
     "PostgreSQL : table utilisateurs vérifiée."
