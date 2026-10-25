@@ -95,6 +95,10 @@ async function initialiserBaseUtilisateurs() {
     ALTER TABLE utilisateurs
     ADD COLUMN IF NOT EXISTS matiere_demandee VARCHAR(80);
   `);
+  await pool.query(`
+    ALTER TABLE utilisateurs
+    ADD COLUMN IF NOT EXISTS niveau_enseignant VARCHAR(10);
+`);
 
   await pool.query(`
     ALTER TABLE utilisateurs
