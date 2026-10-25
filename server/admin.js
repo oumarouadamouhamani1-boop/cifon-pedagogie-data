@@ -318,6 +318,175 @@ function creerRouteAdmin(pool) {
             }
         }
     );
+    
+    // ============================================================
+    // LISTE DES UTILISATEURS — ADMINISTRATION
+    // ============================================================
+
+    router.get(
+        "/api/admin/utilisateurs",
+        authentifierAdmin,
+        async (req, res) => {
+            try {
+                const resultat = await pool.query(
+                    `SELECT id, telephone, statut, role,
+                            date_expiration
+                     FROM utilisateurs
+                     ORDER BY id DESC
+                     LIMIT 500`
+                );
+
+                return res.json({
+                    succes: true,
+                    utilisateurs: resultat.rows
+                });
+
+            } catch (erreur) {
+                console.error(
+                    "Erreur liste utilisateurs :",
+                    erreur.message
+                );
+
+                return res.status(500).json({
+                    succes: false,
+                    message: "Impossible de charger les utilisateurs."
+                });
+            }
+        }
+    );
+
+    // ============================================================
+    // SUSPENDRE UN UTILISATEUR
+    // ============================================================
+
+    router.post(
+        "/api/admin/utilisateurs/:id/suspendre",
+        authentifierAdmin,
+        async (req, res) => {
+            const id = req.params.id;
+
+            if (!/^[1-9]\d*$/.test(id)) {
+                return res.status(400).json({
+                    succes: false,
+                    message: "Identifiant utilisateur invalide."
+                });
+            }
+
+            const client = await pool.connect();
+
+            try {
+                await client.query("BEGIN");
+
+                const resultat = await client.query(
+                    `UPDATE utilisateurs
+                     SET statut = 'suspendu'
+                     WHERE id = $1
+                       AND role <> 'admin'
+                     RETURNING id, telephone, statut, role`,
+                    [id]
+                );
+
+                if (resultat.rowCount === 0) {
+                    await client.query("ROLLBACK");
+
+                    return res.status(404).json({
+                        succes: false,
+                        message:
+                            "Utilisateur introuvable ou compte administrateur protégé."
+                    });
+                }
+
+                // Invalider les sessions existantes de cet utilisateur.
+                await client.query(
+                    `DELETE FROM sessions_utilisateurs
+                     WHERE utilisateur_id = $1`,
+                    [id]
+                );
+
+                await client.query("COMMIT");
+
+                return res.json({
+                    succes: true,
+                    utilisateur: resultat.rows[0],
+                    message:
+                        "Utilisateur suspendu et sessions invalidées."
+                });
+
+            } catch (erreur) {
+                await client.query("ROLLBACK");
+
+                console.error(
+                    "Erreur suspension utilisateur :",
+                    erreur.message
+                );
+
+                return res.status(500).json({
+                    succes: false,
+                    message: "Impossible de suspendre cet utilisateur."
+                });
+
+            } finally {
+                client.release();
+            }
+        }
+    );
+
+    // ============================================================
+    // REACTIVER UN UTILISATEUR
+    // ============================================================
+
+    router.post(
+        "/api/admin/utilisateurs/:id/reactiver",
+        authentifierAdmin,
+        async (req, res) => {
+            const id = req.params.id;
+
+            if (!/^[1-9]\d*$/.test(id)) {
+                return res.status(400).json({
+                    succes: false,
+                    message: "Identifiant utilisateur invalide."
+                });
+            }
+
+            try {
+                const resultat = await pool.query(
+                    `UPDATE utilisateurs
+                     SET statut = 'actif'
+                     WHERE id = $1
+                       AND role <> 'admin'
+                     RETURNING id, telephone, statut, role`,
+                    [id]
+                );
+
+                if (resultat.rowCount === 0) {
+                    return res.status(404).json({
+                        succes: false,
+                        message:
+                            "Utilisateur introuvable ou compte administrateur protégé."
+                    });
+                }
+
+                return res.json({
+                    succes: true,
+                    utilisateur: resultat.rows[0],
+                    message:
+                        "Utilisateur réactivé. Il peut se reconnecter."
+                });
+
+            } catch (erreur) {
+                console.error(
+                    "Erreur réactivation utilisateur :",
+                    erreur.message
+                );
+
+                return res.status(500).json({
+                    succes: false,
+                    message: "Impossible de réactiver cet utilisateur."
+                });
+            }
+        }
+    );
+
 
     return router;
 }
