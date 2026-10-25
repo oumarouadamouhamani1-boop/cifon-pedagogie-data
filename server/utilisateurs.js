@@ -8,7 +8,7 @@ const crypto = require("crypto");
 module.exports = function creerRouteUtilisateurs(pool) {
   const router = express.Router();
 
-  // Inscription
+  // Inscription d'un enseignant
   router.post("/api/utilisateurs/inscription", async (req, res) => {
     try {
       if (!pool) {
@@ -24,6 +24,14 @@ module.exports = function creerRouteUtilisateurs(pool) {
 
       const motDePasse = String(req.body?.motDePasse || "");
 
+      const typeEnseignant = String(
+        req.body?.type_enseignant || ""
+      ).trim().toLowerCase();
+
+      const matiereDemandee = String(
+        req.body?.matiere_demandee || ""
+      ).trim();
+
       if (!/^\+?[0-9]{8,15}$/.test(telephone)) {
         return res.status(400).json({
           succes: false,
@@ -34,23 +42,70 @@ module.exports = function creerRouteUtilisateurs(pool) {
       if (motDePasse.length < 8 || motDePasse.length > 128) {
         return res.status(400).json({
           succes: false,
-          message: "Le mot de passe doit contenir entre 8 et 128 caractères."
+          message:
+            "Le mot de passe doit contenir entre 8 et 128 caractères."
         });
       }
+
+      if (!["primaire", "secondaire"].includes(typeEnseignant)) {
+        return res.status(400).json({
+          succes: false,
+          message:
+            "Choisissez le profil primaire ou secondaire."
+        });
+      }
+
+      if (
+        typeEnseignant === "secondaire" &&
+        !matiereDemandee
+      ) {
+        return res.status(400).json({
+          succes: false,
+          message:
+            "Choisissez la matière enseignée au secondaire."
+        });
+      }
+
+      // Pour le primaire, le choix d'une matière unique n'est pas requis.
+      const matiere = typeEnseignant === "primaire"
+        ? null
+        : matiereDemandee;
 
       const hash = await bcrypt.hash(motDePasse, 12);
 
       const resultat = await pool.query(
         `INSERT INTO utilisateurs
-          (telephone, mot_de_passe_hash, statut, role)
-         VALUES ($1, $2, 'actif', 'testeur')
-         RETURNING id, telephone, role, statut, cree_le`,
-        [telephone, hash]
+          (
+            telephone,
+            mot_de_passe_hash,
+            statut,
+            role,
+            type_enseignant,
+            matiere_demandee,
+            validation_pedagogique
+          )
+         VALUES ($1, $2, 'actif', 'testeur', $3, $4, 'en_attente')
+         RETURNING
+           id,
+           telephone,
+           role,
+           statut,
+           type_enseignant,
+           matiere_demandee,
+           validation_pedagogique,
+           cree_le`,
+        [
+          telephone,
+          hash,
+          typeEnseignant,
+          matiere
+        ]
       );
 
       return res.status(201).json({
         succes: true,
-        message: "Compte créé. Vous pouvez maintenant vous connecter.",
+        message:
+          "Compte créé. Votre profil pédagogique attend la validation de l'administrateur.",
         utilisateur: resultat.rows[0]
       });
     } catch (erreur) {
@@ -62,6 +117,7 @@ module.exports = function creerRouteUtilisateurs(pool) {
       }
 
       console.error("Erreur inscription :", erreur.message);
+
       return res.status(500).json({
         succes: false,
         message: "Impossible de créer le compte."
@@ -69,7 +125,7 @@ module.exports = function creerRouteUtilisateurs(pool) {
     }
   });
 
-  // Connexion avec création d'une session de 30 jours
+  // Connexion
   router.post("/api/utilisateurs/connexion", async (req, res) => {
     try {
       if (!pool) {
@@ -86,8 +142,16 @@ module.exports = function creerRouteUtilisateurs(pool) {
       const motDePasse = String(req.body?.motDePasse || "");
 
       const resultat = await pool.query(
-        `SELECT id, telephone, mot_de_passe_hash,
-                role, statut, date_expiration
+        `SELECT
+           id,
+           telephone,
+           mot_de_passe_hash,
+           role,
+           statut,
+           date_expiration,
+           type_enseignant,
+           matiere_demandee,
+           validation_pedagogique
          FROM utilisateurs
          WHERE telephone = $1`,
         [telephone]
@@ -114,15 +178,15 @@ module.exports = function creerRouteUtilisateurs(pool) {
         });
       }
 
-      if (utilisateur.statut === "suspendu") {
+      if (utilisateur.statut !== "actif") {
         return res.status(403).json({
           succes: false,
-          message: "Ce compte est suspendu."
+          message: "Ce compte n'est pas actif."
         });
       }
 
-      // Créer un jeton aléatoire imprévisible.
       const jeton = crypto.randomBytes(32).toString("hex");
+
       const jetonHash = crypto
         .createHash("sha256")
         .update(jeton)
@@ -142,7 +206,7 @@ module.exports = function creerRouteUtilisateurs(pool) {
       return res.json({
         succes: true,
         message: "Connexion réussie.",
-        jeton: jeton,
+        jeton,
         typeJeton: "Bearer",
         expireLe: expireLe.toISOString(),
         utilisateur: {
@@ -150,11 +214,16 @@ module.exports = function creerRouteUtilisateurs(pool) {
           telephone: utilisateur.telephone,
           role: utilisateur.role,
           statut: utilisateur.statut,
-          dateExpiration: utilisateur.date_expiration
+          dateExpiration: utilisateur.date_expiration,
+          type_enseignant: utilisateur.type_enseignant,
+          matiere_demandee: utilisateur.matiere_demandee,
+          validation_pedagogique:
+            utilisateur.validation_pedagogique
         }
       });
     } catch (erreur) {
       console.error("Erreur connexion :", erreur.message);
+
       return res.status(500).json({
         succes: false,
         message: "Impossible de se connecter pour le moment."
@@ -162,11 +231,20 @@ module.exports = function creerRouteUtilisateurs(pool) {
     }
   });
 
-  // Vérifier la session de l'utilisateur connecté
+  // Vérifier la session
   router.get("/api/utilisateurs/moi", async (req, res) => {
     try {
+      if (!pool) {
+        return res.status(503).json({
+          succes: false,
+          message: "Base de données indisponible."
+        });
+      }
+
       const autorisation = req.headers.authorization || "";
-      const correspondance = autorisation.match(/^Bearer\s+([a-f0-9]{64})$/i);
+      const correspondance = autorisation.match(
+        /^Bearer\s+([a-f0-9]{64})$/i
+      );
 
       if (!correspondance) {
         return res.status(401).json({
@@ -181,8 +259,15 @@ module.exports = function creerRouteUtilisateurs(pool) {
         .digest("hex");
 
       const resultat = await pool.query(
-        `SELECT u.id, u.telephone, u.role, u.statut,
-                u.date_expiration
+        `SELECT
+           u.id,
+           u.telephone,
+           u.role,
+           u.statut,
+           u.date_expiration,
+           u.type_enseignant,
+           u.matiere_demandee,
+           u.validation_pedagogique
          FROM sessions_utilisateurs s
          JOIN utilisateurs u ON u.id = s.utilisateur_id
          WHERE s.jeton_hash = $1
@@ -203,7 +288,11 @@ module.exports = function creerRouteUtilisateurs(pool) {
         utilisateur: resultat.rows[0]
       });
     } catch (erreur) {
-      console.error("Erreur vérification session :", erreur.message);
+      console.error(
+        "Erreur vérification session :",
+        erreur.message
+      );
+
       return res.status(500).json({
         succes: false,
         message: "Impossible de vérifier la session."
@@ -211,11 +300,20 @@ module.exports = function creerRouteUtilisateurs(pool) {
     }
   });
 
-  // Déconnexion : révoquer le jeton courant
+  // Déconnexion
   router.post("/api/utilisateurs/deconnexion", async (req, res) => {
     try {
+      if (!pool) {
+        return res.status(503).json({
+          succes: false,
+          message: "Base de données indisponible."
+        });
+      }
+
       const autorisation = req.headers.authorization || "";
-      const correspondance = autorisation.match(/^Bearer\s+([a-f0-9]{64})$/i);
+      const correspondance = autorisation.match(
+        /^Bearer\s+([a-f0-9]{64})$/i
+      );
 
       if (!correspondance) {
         return res.status(401).json({
@@ -240,6 +338,7 @@ module.exports = function creerRouteUtilisateurs(pool) {
       });
     } catch (erreur) {
       console.error("Erreur déconnexion :", erreur.message);
+
       return res.status(500).json({
         succes: false,
         message: "Impossible de se déconnecter."
