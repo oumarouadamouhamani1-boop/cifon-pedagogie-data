@@ -8,6 +8,7 @@ const crypto = require("crypto");
 module.exports = function creerRouteUtilisateurs(pool) {
   const router = express.Router();
 
+  
   // Inscription d'un enseignant
   router.post("/api/utilisateurs/inscription", async (req, res) => {
     try {
@@ -28,9 +29,17 @@ module.exports = function creerRouteUtilisateurs(pool) {
         req.body?.type_enseignant || ""
       ).trim().toLowerCase();
 
+      const niveauEnseignant = String(
+        req.body?.niveau_enseignant || ""
+      ).trim().toUpperCase();
+
       const matiereDemandee = String(
         req.body?.matiere_demandee || ""
       ).trim();
+
+      const niveauxPrimaires = [
+        "CI", "CP", "CE1", "CE2", "CM1", "CM2"
+      ];
 
       if (!/^\+?[0-9]{8,15}$/.test(telephone)) {
         return res.status(400).json({
@@ -50,15 +59,21 @@ module.exports = function creerRouteUtilisateurs(pool) {
       if (!["primaire", "secondaire"].includes(typeEnseignant)) {
         return res.status(400).json({
           succes: false,
-          message:
-            "Choisissez le profil primaire ou secondaire."
+          message: "Choisissez le profil primaire ou secondaire."
         });
       }
 
-      if (
-        typeEnseignant === "secondaire" &&
-        !matiereDemandee
-      ) {
+      if (typeEnseignant === "primaire") {
+        if (!niveauxPrimaires.includes(niveauEnseignant)) {
+          return res.status(400).json({
+            succes: false,
+            message:
+              "Choisissez un niveau : CI, CP, CE1, CE2, CM1 ou CM2."
+          });
+        }
+      }
+
+      if (typeEnseignant === "secondaire" && !matiereDemandee) {
         return res.status(400).json({
           succes: false,
           message:
@@ -66,10 +81,13 @@ module.exports = function creerRouteUtilisateurs(pool) {
         });
       }
 
-      // Pour le primaire, le choix d'une matière unique n'est pas requis.
-      const matiere = typeEnseignant === "primaire"
-        ? null
-        : matiereDemandee;
+      const niveau = typeEnseignant === "primaire"
+        ? niveauEnseignant
+        : null;
+
+      const matiere = typeEnseignant === "secondaire"
+        ? matiereDemandee
+        : null;
 
       const hash = await bcrypt.hash(motDePasse, 12);
 
@@ -81,16 +99,20 @@ module.exports = function creerRouteUtilisateurs(pool) {
             statut,
             role,
             type_enseignant,
+            niveau_enseignant,
             matiere_demandee,
             validation_pedagogique
           )
-         VALUES ($1, $2, 'actif', 'testeur', $3, $4, 'en_attente')
+         VALUES (
+            $1, $2, 'actif', 'testeur', $3, $4, $5, 'en_attente'
+         )
          RETURNING
            id,
            telephone,
            role,
            statut,
            type_enseignant,
+           niveau_enseignant,
            matiere_demandee,
            validation_pedagogique,
            cree_le`,
@@ -98,6 +120,7 @@ module.exports = function creerRouteUtilisateurs(pool) {
           telephone,
           hash,
           typeEnseignant,
+          niveau,
           matiere
         ]
       );
@@ -124,6 +147,7 @@ module.exports = function creerRouteUtilisateurs(pool) {
       });
     }
   });
+
 
   // Connexion
   router.post("/api/utilisateurs/connexion", async (req, res) => {
