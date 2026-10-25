@@ -164,6 +164,46 @@
     </section>
 
     <main id="administration" class="cache">
+        
+        <section class="carte">
+            <h2>Validation des enseignants</h2>
+            <p class="petit">
+                Examine les demandes et approuve uniquement les profils
+                dont les informations ont été vérifiées.
+            </p>
+
+            <button id="actualiserDemandes" type="button"
+                    class="secondaire">
+                Actualiser les demandes
+            </button>
+
+            <p id="messageDemandes" class="message">
+                En attente de chargement.
+            </p>
+
+            <div class="tableau">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Téléphone</th>
+                        <th>Profil</th>
+                        <th>Matière demandée</th>
+                        <th>Validation</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody id="listeDemandes">
+                    <tr>
+                        <td colspan="6">
+                            Connecte-toi pour afficher les demandes.
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        
 
         <section class="carte">
             <h2>Utilisateurs inscrits</h2>
@@ -355,10 +395,11 @@
                 message.textContent = "";
                 afficherConnecte();
 
-                await Promise.all([
+                                await Promise.all([
                     chargerCodes(),
                     chargerNombreUtilisateurs(),
-                    chargerUtilisateurs()
+                    chargerUtilisateurs(),
+                    chargerDemandes()
                 ]);
             } catch (erreur) {
                 message.textContent = erreur.message;
@@ -669,6 +710,120 @@
             document.getElementById("messageConnexion").textContent =
                 "Tu es déconnecté.";
         });
+    
+    // DEMANDES DE VALIDATION DES ENSEIGNANTS
+    async function chargerDemandes() {
+        const liste = document.getElementById("listeDemandes");
+        const message = document.getElementById("messageDemandes");
+
+        liste.replaceChildren();
+        message.textContent = "Chargement des demandes...";
+
+        try {
+            const donnees = await requete(
+                "/api/admin/enseignants/demandes"
+            );
+
+            if (!Array.isArray(donnees.demandes)) {
+                throw new Error("La liste des demandes est invalide.");
+            }
+
+            if (donnees.demandes.length === 0) {
+                const ligne = document.createElement("tr");
+                const cellule = document.createElement("td");
+                cellule.colSpan = 6;
+                cellule.textContent = "Aucune demande en attente ou refusée.";
+                ligne.appendChild(cellule);
+                liste.appendChild(ligne);
+            }
+
+            donnees.demandes.forEach(function(demande) {
+                const ligne = document.createElement("tr");
+
+                ajouterCellule(ligne, demande.id);
+                ajouterCellule(ligne, demande.telephone);
+                ajouterCellule(ligne, demande.type_enseignant);
+                ajouterCellule(
+                    ligne,
+                    demande.matiere_demandee || "Toutes les matières du primaire"
+                );
+                ajouterCellule(ligne, demande.validation_pedagogique);
+
+                const celluleActions = document.createElement("td");
+
+                const approuver = document.createElement("button");
+                approuver.type = "button";
+                approuver.textContent = "Approuver";
+
+                approuver.addEventListener("click", function() {
+                    traiterDemande(demande.id, "approuver");
+                });
+
+                const refuser = document.createElement("button");
+                refuser.type = "button";
+                refuser.textContent = "Refuser";
+                refuser.className = "danger";
+
+                refuser.addEventListener("click", function() {
+                    traiterDemande(demande.id, "refuser");
+                });
+
+                celluleActions.append(approuver, refuser);
+                ligne.appendChild(celluleActions);
+                liste.appendChild(ligne);
+            });
+
+            message.textContent =
+                donnees.demandes.length + " demande(s) affichée(s).";
+
+        } catch (erreur) {
+            message.textContent = "Erreur : " + erreur.message;
+            verifierSession(erreur);
+        }
+    }
+
+    // APPROUVER OU REFUSER UNE DEMANDE
+    async function traiterDemande(id, action) {
+        const libelle = action === "approuver"
+            ? "l'approbation"
+            : "le refus";
+
+        if (!window.confirm(
+            "Confirmer " + libelle + " de la demande n°" + id + " ?"
+        )) {
+            return;
+        }
+
+        const message = document.getElementById("messageDemandes");
+        message.textContent = "Traitement en cours...";
+
+        try {
+            const resultat = await requete(
+                "/api/admin/enseignants/" +
+                encodeURIComponent(String(id)) + "/" + action,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({})
+                }
+            );
+
+            message.textContent = resultat.message || "Demande traitée.";
+
+            await Promise.all([
+                chargerDemandes(),
+                chargerUtilisateurs()
+            ]);
+
+        } catch (erreur) {
+            message.textContent = "Échec : " + erreur.message;
+            verifierSession(erreur);
+        }
+    }
+
+    document.getElementById("actualiserDemandes")
+        .addEventListener("click", chargerDemandes);
+
 </script>
 </body>
 </html>
