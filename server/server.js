@@ -83,6 +83,29 @@ async function initialiserBaseUtilisateurs() {
     ALTER TABLE utilisateurs
     ALTER COLUMN code_acces_hash DROP NOT NULL;
   `);
+  
+  // Champs du profil pédagogique des enseignants.
+  // ADD COLUMN IF NOT EXISTS conserve les données existantes.
+  await pool.query(`
+    ALTER TABLE utilisateurs
+    ADD COLUMN IF NOT EXISTS type_enseignant VARCHAR(20);
+  `);
+
+  await pool.query(`
+    ALTER TABLE utilisateurs
+    ADD COLUMN IF NOT EXISTS matiere_demandee VARCHAR(80);
+  `);
+
+  await pool.query(`
+    ALTER TABLE utilisateurs
+    ADD COLUMN IF NOT EXISTS validation_pedagogique
+    VARCHAR(20) NOT NULL DEFAULT 'non_concerne';
+  `);
+
+  console.log(
+    "PostgreSQL : champs des profils pédagogiques vérifiés."
+  );
+  
     // Table des sessions sécurisées des utilisateurs.
   await pool.query(`
     CREATE TABLE IF NOT EXISTS sessions_utilisateurs (
