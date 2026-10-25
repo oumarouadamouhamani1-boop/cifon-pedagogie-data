@@ -98,6 +98,22 @@ async function initialiserBaseUtilisateurs() {
   await pool.query(`
     ALTER TABLE utilisateurs
     ADD COLUMN IF NOT EXISTS niveau_enseignant VARCHAR(10);
+    
+  await pool.query(`
+  ALTER TABLE utilisateurs
+  ADD COLUMN IF NOT EXISTS direction_regionale_enseignant VARCHAR(150);
+`);
+
+  await pool.query(`
+    ALTER TABLE utilisateurs
+    ADD COLUMN IF NOT EXISTS inspection_enseignant VARCHAR(150);
+  `);
+
+  await pool.query(`
+    ALTER TABLE utilisateurs
+    ADD COLUMN IF NOT EXISTS etablissement_enseignant VARCHAR(200);
+  `);
+  
 `);
 
   await pool.query(`
