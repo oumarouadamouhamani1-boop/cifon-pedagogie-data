@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -15,7 +16,7 @@
         }
 
         .conteneur {
-            max-width: 750px;
+            max-width: 1000px;
             margin: 25px auto;
         }
 
@@ -27,9 +28,7 @@
             box-shadow: 0 2px 8px #00000012;
         }
 
-        h1, h2 {
-            color: #14532d;
-        }
+        h1, h2 { color: #14532d; }
 
         label {
             display: block;
@@ -46,9 +45,7 @@
             font-size: 16px;
         }
 
-        input, select {
-            border: 1px solid #ccc;
-        }
+        input, select { border: 1px solid #ccc; }
 
         button {
             border: none;
@@ -58,13 +55,13 @@
             font-weight: bold;
         }
 
-        button:hover {
-            background: #14532d;
-        }
+        button:hover { background: #14532d; }
+        button:disabled { opacity: .6; cursor: not-allowed; }
 
-        .secondaire {
-            background: #475569;
-        }
+        .secondaire { background: #475569; }
+        .danger { background: #b91c1c; }
+        .danger:hover { background: #991b1b; }
+        .cache { display: none; }
 
         .message {
             margin-top: 15px;
@@ -80,12 +77,9 @@
             overflow-wrap: anywhere;
         }
 
-        .cache {
-            display: none;
-        }
-
         .tableau {
             overflow-x: auto;
+            margin-top: 15px;
         }
 
         table {
@@ -100,8 +94,12 @@
             text-align: left;
         }
 
-        th {
-            background: #e8f5e9;
+        th { background: #e8f5e9; }
+
+        td button {
+            min-width: 100px;
+            padding: 9px;
+            font-size: 13px;
         }
 
         .petit {
@@ -125,6 +123,24 @@
             color: #166534;
             margin: 10px 0;
         }
+
+        .statut {
+            display: inline-block;
+            padding: 5px 8px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        .statut-actif { background: #dcfce7; color: #166534; }
+        .statut-suspendu { background: #fee2e2; color: #991b1b; }
+        .statut-expire { background: #fef3c7; color: #92400e; }
+
+        @media (max-width: 600px) {
+            body { padding: 8px; }
+            .conteneur { margin: 10px auto; }
+            .carte { padding: 15px; }
+            th, td { padding: 8px; font-size: 12px; }
+        }
     </style>
 </head>
 
@@ -139,13 +155,8 @@
 
         <form id="formConnexion">
             <label for="motDePasse">Mot de passe administrateur</label>
-            <input
-                type="password"
-                id="motDePasse"
-                autocomplete="current-password"
-                required
-            >
-
+            <input type="password" id="motDePasse"
+                   autocomplete="current-password" required>
             <button type="submit">Se connecter</button>
         </form>
 
@@ -154,10 +165,8 @@
 
     <main id="administration" class="cache">
 
-        <!-- COMPTEUR DES UTILISATEURS -->
         <section class="carte">
             <h2>Utilisateurs inscrits</h2>
-
             <p class="petit">
                 Nombre total de comptes enregistrés dans la base de données.
             </p>
@@ -169,28 +178,61 @@
                 </p>
             </div>
 
-            <button
-                id="actualiserUtilisateurs"
-                type="button"
-                class="secondaire"
-            >
+            <button id="actualiserUtilisateurs" type="button"
+                    class="secondaire">
                 Actualiser le nombre d'utilisateurs
             </button>
         </section>
 
-        <!-- GENERATION DES CODES -->
+        <!-- NOUVELLE SECTION : GESTION DES UTILISATEURS -->
+        <section class="carte">
+            <h2>Gérer les comptes utilisateurs</h2>
+            <p class="petit">
+                Consulte les comptes, suspends un utilisateur ou réactive
+                un compte suspendu. Les comptes administrateurs sont protégés.
+            </p>
+
+            <button id="actualiserListeUtilisateurs" type="button"
+                    class="secondaire">
+                Actualiser la liste des utilisateurs
+            </button>
+
+            <p id="messageListeUtilisateurs" class="message">
+                En attente de chargement.
+            </p>
+
+            <div class="tableau">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Téléphone</th>
+                        <th>Rôle</th>
+                        <th>Statut</th>
+                        <th>Expiration</th>
+                        <th>Action</th>
+                    </tr>
+                    </thead>
+
+                    <tbody id="listeUtilisateurs">
+                    <tr>
+                        <td colspan="6">Connecte-toi pour afficher les utilisateurs.</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
         <section class="carte">
             <h2>Générer un code d'accès</h2>
 
             <form id="formCode">
                 <label for="duree">Durée de l'accès</label>
-
                 <select id="duree" required>
                     <option value="30">30 jours</option>
                     <option value="60">60 jours</option>
                     <option value="90">90 jours</option>
                 </select>
-
                 <button type="submit">Générer le code</button>
             </form>
 
@@ -202,7 +244,6 @@
             </p>
         </section>
 
-        <!-- LISTE DES CODES -->
         <section class="carte">
             <h2>Codes créés</h2>
 
@@ -213,20 +254,17 @@
             <div class="tableau">
                 <table>
                     <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Statut</th>
-                            <th>Durée</th>
-                            <th>Création</th>
-                            <th>Activation</th>
-                            <th>Expiration</th>
-                        </tr>
+                    <tr>
+                        <th>ID</th>
+                        <th>Statut</th>
+                        <th>Durée</th>
+                        <th>Création</th>
+                        <th>Activation</th>
+                        <th>Expiration</th>
+                    </tr>
                     </thead>
-
                     <tbody id="listeCodes">
-                        <tr>
-                            <td colspan="6">Aucune donnée chargée.</td>
-                        </tr>
+                    <tr><td colspan="6">Aucune donnée chargée.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -239,7 +277,6 @@
                 Se déconnecter
             </button>
         </section>
-
     </main>
 </div>
 
@@ -252,7 +289,6 @@
             credentials: "same-origin",
             ...options,
             headers: {
-                "Content-Type": "application/json",
                 ...(options.headers || {})
             }
         });
@@ -260,11 +296,13 @@
         const donnees = await reponse.json().catch(() => ({}));
 
         if (!reponse.ok) {
-            throw new Error(
+            const erreur = new Error(
                 donnees.message ||
                 donnees.messageErreur ||
-                "Une erreur est survenue (HTTP " + reponse.status + ")."
+                "Erreur HTTP " + reponse.status
             );
+            erreur.status = reponse.status;
+            throw erreur;
         }
 
         return donnees;
@@ -280,22 +318,36 @@
         connexion.classList.remove("cache");
     }
 
-    // CONNEXION ADMINISTRATEUR
+    function verifierSession(erreur) {
+        if (erreur.status === 401 || erreur.status === 403) {
+            afficherDeconnecte();
+            document.getElementById("messageConnexion").textContent =
+                "Session expirée. Connecte-toi à nouveau.";
+        }
+    }
+
+    function formaterDate(valeur) {
+        if (!valeur) return "—";
+        const date = new Date(valeur);
+        return Number.isNaN(date.getTime())
+            ? String(valeur)
+            : date.toLocaleString("fr-FR");
+    }
+
+    // CONNEXION
     document.getElementById("formConnexion")
         .addEventListener("submit", async function(event) {
             event.preventDefault();
 
-            const message =
-                document.getElementById("messageConnexion");
-
+            const message = document.getElementById("messageConnexion");
             message.textContent = "Connexion en cours...";
 
             try {
                 await requete("/api/admin/login", {
                     method: "POST",
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        motDePasse:
-                            document.getElementById("motDePasse").value
+                        motDePasse: document.getElementById("motDePasse").value
                     })
                 });
 
@@ -305,78 +357,210 @@
 
                 await Promise.all([
                     chargerCodes(),
-                    chargerNombreUtilisateurs()
+                    chargerNombreUtilisateurs(),
+                    chargerUtilisateurs()
                 ]);
-
             } catch (erreur) {
                 message.textContent = erreur.message;
             }
         });
 
-    // COMPTER LES UTILISATEURS
+    // COMPTEUR
     async function chargerNombreUtilisateurs() {
-        const nombre =
-            document.getElementById("nombreUtilisateurs");
-
-        const message =
-            document.getElementById("messageUtilisateurs");
+        const nombre = document.getElementById("nombreUtilisateurs");
+        const message = document.getElementById("messageUtilisateurs");
 
         nombre.textContent = "…";
         message.textContent = "Vérification en cours...";
 
         try {
-            const donnees = await requete(
-                "/api/admin/utilisateurs/nombre"
-            );
+            const donnees = await requete("/api/admin/utilisateurs/nombre");
 
-            if (
-                donnees.succes !== true ||
-                !Number.isFinite(donnees.nombreUtilisateurs)
-            ) {
-                throw new Error(
-                    "La réponse du serveur est invalide."
-                );
+            if (donnees.succes !== true ||
+                !Number.isFinite(donnees.nombreUtilisateurs)) {
+                throw new Error("La réponse du serveur est invalide.");
             }
 
             nombre.textContent = donnees.nombreUtilisateurs;
-
-            message.textContent =
-                donnees.nombreUtilisateurs === 0
-                    ? "Aucun compte utilisateur enregistré pour le moment."
-                    : "Nombre de comptes enregistré(s) dans la base.";
-
+            message.textContent = donnees.nombreUtilisateurs === 0
+                ? "Aucun compte enregistré."
+                : "Nombre de comptes enregistrés dans la base.";
         } catch (erreur) {
             nombre.textContent = "—";
             message.textContent = erreur.message;
-
-            if (erreur.message.includes("401")) {
-                afficherDeconnecte();
-            }
+            verifierSession(erreur);
         }
     }
 
     document.getElementById("actualiserUtilisateurs")
-        .addEventListener(
-            "click",
-            chargerNombreUtilisateurs
-        );
+        .addEventListener("click", chargerNombreUtilisateurs);
 
-    // GENERER UN CODE
+    // LISTE DES UTILISATEURS
+    async function chargerUtilisateurs() {
+        const liste = document.getElementById("listeUtilisateurs");
+        const message = document.getElementById("messageListeUtilisateurs");
+
+        liste.replaceChildren();
+        message.textContent = "Chargement des utilisateurs...";
+
+        try {
+            const donnees = await requete("/api/admin/utilisateurs");
+
+            if (!Array.isArray(donnees.utilisateurs)) {
+                throw new Error(
+                    "La réponse ne contient pas de liste 'utilisateurs'. Vérifie la route serveur."
+                );
+            }
+
+            if (donnees.utilisateurs.length === 0) {
+                const ligne = document.createElement("tr");
+                const cellule = document.createElement("td");
+                cellule.colSpan = 6;
+                cellule.textContent = "Aucun utilisateur enregistré.";
+                ligne.appendChild(cellule);
+                liste.appendChild(ligne);
+            }
+
+            donnees.utilisateurs.forEach(function(utilisateur) {
+                const ligne = document.createElement("tr");
+
+                ajouterCellule(ligne, utilisateur.id);
+                ajouterCellule(ligne, utilisateur.telephone);
+                ajouterCellule(ligne, utilisateur.role);
+
+                const celluleStatut = document.createElement("td");
+                const badge = document.createElement("span");
+                const statut = String(utilisateur.statut || "inconnu")
+                    .toLowerCase();
+
+                badge.className = "statut";
+                badge.textContent = statut;
+
+                if (statut === "actif") {
+                    badge.classList.add("statut-actif");
+                } else if (statut === "suspendu") {
+                    badge.classList.add("statut-suspendu");
+                } else if (statut === "expire") {
+                    badge.classList.add("statut-expire");
+                }
+
+                celluleStatut.appendChild(badge);
+                ligne.appendChild(celluleStatut);
+
+                ajouterCellule(ligne, formaterDate(utilisateur.date_expiration));
+
+                const celluleAction = document.createElement("td");
+                const bouton = document.createElement("button");
+                bouton.type = "button";
+
+                const role = String(utilisateur.role || "").toLowerCase();
+
+                if (role === "admin") {
+                    bouton.textContent = "Compte admin";
+                    bouton.disabled = true;
+                    bouton.className = "secondaire";
+                } else if (statut === "suspendu") {
+                    bouton.textContent = "Réactiver";
+                    bouton.addEventListener("click", function() {
+                        modifierUtilisateur(
+                            utilisateur.id, "reactiver", utilisateur.telephone
+                        );
+                    });
+                } else {
+                    bouton.textContent = "Suspendre";
+                    bouton.className = "danger";
+                    bouton.addEventListener("click", function() {
+                        modifierUtilisateur(
+                            utilisateur.id, "suspendre", utilisateur.telephone
+                        );
+                    });
+                }
+
+                celluleAction.appendChild(bouton);
+                ligne.appendChild(celluleAction);
+                liste.appendChild(ligne);
+            });
+
+            message.textContent =
+                donnees.utilisateurs.length + " utilisateur(s) affiché(s).";
+        } catch (erreur) {
+            const ligne = document.createElement("tr");
+            const cellule = document.createElement("td");
+            cellule.colSpan = 6;
+            cellule.textContent = erreur.message;
+            ligne.appendChild(cellule);
+            liste.appendChild(ligne);
+
+            message.textContent = "Impossible de charger la liste.";
+            verifierSession(erreur);
+        }
+    }
+
+    function ajouterCellule(ligne, valeur) {
+        const cellule = document.createElement("td");
+        cellule.textContent =
+            valeur === null || valeur === undefined || valeur === ""
+                ? "—"
+                : String(valeur);
+        ligne.appendChild(cellule);
+    }
+
+    // SUSPENSION / RÉACTIVATION
+    async function modifierUtilisateur(id, action, telephone) {
+        const suspension = action === "suspendre";
+
+        if (!window.confirm(
+            "Confirmer " + (suspension ? "la suspension" : "la réactivation") +
+            " du compte " + telephone + " ?"
+        )) {
+            return;
+        }
+
+        const message = document.getElementById("messageListeUtilisateurs");
+        message.textContent = "Opération en cours...";
+
+        try {
+            await requete(
+                "/api/admin/utilisateurs/" +
+                encodeURIComponent(String(id)) + "/" + action,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({})
+                }
+            );
+
+            message.textContent = suspension
+                ? "Compte suspendu."
+                : "Compte réactivé.";
+
+            await Promise.all([
+                chargerUtilisateurs(),
+                chargerNombreUtilisateurs()
+            ]);
+        } catch (erreur) {
+            message.textContent = "Échec : " + erreur.message;
+            verifierSession(erreur);
+        }
+    }
+
+    document.getElementById("actualiserListeUtilisateurs")
+        .addEventListener("click", chargerUtilisateurs);
+
+    // GÉNÉRER UN CODE
     document.getElementById("formCode")
         .addEventListener("submit", async function(event) {
             event.preventDefault();
 
-            const resultat =
-                document.getElementById("resultatCode");
-
+            const resultat = document.getElementById("resultatCode");
             resultat.textContent = "Création du code en cours...";
 
             try {
                 const donnees = await requete("/api/admin/codes", {
                     method: "POST",
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        dureeJours:
-                            Number(document.getElementById("duree").value)
+                        dureeJours: Number(document.getElementById("duree").value)
                     })
                 });
 
@@ -392,8 +576,7 @@
                 code.textContent = donnees.code;
 
                 const duree = document.createElement("p");
-                duree.textContent =
-                    "Durée prévue : " + donnees.dureeJours + " jours";
+                duree.textContent = "Durée prévue : " + donnees.dureeJours + " jours";
 
                 const bouton = document.createElement("button");
                 bouton.type = "button";
@@ -404,23 +587,21 @@
                         await navigator.clipboard.writeText(donnees.code);
                         bouton.textContent = "Code copié !";
                     } catch (erreur) {
-                        code.textContent =
-                            donnees.code +
+                        code.textContent = donnees.code +
                             " — Sélectionne et copie ce texte manuellement.";
                     }
                 });
 
                 bloc.append(titre, code, duree, bouton);
                 resultat.appendChild(bloc);
-
                 await chargerCodes();
-
             } catch (erreur) {
                 resultat.textContent = erreur.message;
+                verifierSession(erreur);
             }
         });
 
-    // CHARGER LA LISTE DES CODES
+    // LISTE DES CODES
     async function chargerCodes() {
         const liste = document.getElementById("listeCodes");
         const message = document.getElementById("messageListe");
@@ -438,10 +619,8 @@
             if (donnees.codes.length === 0) {
                 const ligne = document.createElement("tr");
                 const cellule = document.createElement("td");
-
                 cellule.colSpan = 6;
                 cellule.textContent = "Aucun code créé.";
-
                 ligne.appendChild(cellule);
                 liste.appendChild(ligne);
             }
@@ -457,59 +636,36 @@
                     formaterDate(code.active_le),
                     formaterDate(code.date_expiration)
                 ].forEach(function(valeur) {
-                    const cellule = document.createElement("td");
-
-                    cellule.textContent =
-                        valeur === null || valeur === undefined
-                            ? "—"
-                            : String(valeur);
-
-                    ligne.appendChild(cellule);
+                    ajouterCellule(ligne, valeur);
                 });
 
                 liste.appendChild(ligne);
             });
 
             message.textContent = "";
-
         } catch (erreur) {
             message.textContent = erreur.message;
-
-            if (erreur.message.includes("401")) {
-                afficherDeconnecte();
-            }
+            verifierSession(erreur);
         }
-    }
-
-    function formaterDate(valeur) {
-        if (!valeur) return "—";
-
-        const date = new Date(valeur);
-
-        if (Number.isNaN(date.getTime())) {
-            return String(valeur);
-        }
-
-        return date.toLocaleString("fr-FR");
     }
 
     document.getElementById("actualiser")
         .addEventListener("click", chargerCodes);
 
-    // DECONNEXION
+    // DÉCONNEXION
     document.getElementById("deconnexion")
         .addEventListener("click", async function() {
             try {
                 await requete("/api/admin/logout", {
                     method: "POST",
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({})
                 });
             } catch (erreur) {
-                // La page sera refermée même si la session a expiré.
+                // La session peut déjà avoir expiré.
             }
 
             afficherDeconnecte();
-
             document.getElementById("messageConnexion").textContent =
                 "Tu es déconnecté.";
         });
