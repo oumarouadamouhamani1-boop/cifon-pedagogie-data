@@ -486,6 +486,191 @@ function creerRouteAdmin(pool) {
             }
         }
     );
+    
+    // ============================================================
+    // DEMANDES DE VALIDATION DES ENSEIGNANTS
+    // ============================================================
+
+    router.get(
+        "/api/admin/enseignants/demandes",
+        authentifierAdmin,
+        async (req, res) => {
+            try {
+                const resultat = await pool.query(
+                    `SELECT
+                        id,
+                        telephone,
+                        type_enseignant,
+                        matiere_demandee,
+                        validation_pedagogique,
+                        statut,
+                        cree_le
+                     FROM utilisateurs
+                     WHERE validation_pedagogique IN (
+                        'en_attente',
+                        'refusee'
+                     )
+                     ORDER BY cree_le DESC
+                     LIMIT 500`
+                );
+
+                return res.json({
+                    succes: true,
+                    demandes: resultat.rows
+                });
+            } catch (erreur) {
+                console.error(
+                    "Erreur lecture demandes enseignants :",
+                    erreur.message
+                );
+
+                return res.status(500).json({
+                    succes: false,
+                    message:
+                        "Impossible de charger les demandes."
+                });
+            }
+        }
+    );
+
+    // ============================================================
+    // APPROUVER UNE DEMANDE ENSEIGNANT
+    // ============================================================
+
+    router.post(
+        "/api/admin/enseignants/:id/approuver",
+        authentifierAdmin,
+        async (req, res) => {
+            const id = req.params.id;
+
+            if (!/^[1-9]\d*$/.test(id)) {
+                return res.status(400).json({
+                    succes: false,
+                    message: "Identifiant invalide."
+                });
+            }
+
+            try {
+                const resultat = await pool.query(
+                    `UPDATE utilisateurs
+                     SET validation_pedagogique = 'approuve'
+                     WHERE id = $1
+                       AND role <> 'admin'
+                       AND type_enseignant IN (
+                           'primaire',
+                           'secondaire'
+                       )
+                       AND validation_pedagogique IN (
+                           'en_attente',
+                           'refusee'
+                       )
+                     RETURNING
+                       id,
+                       telephone,
+                       type_enseignant,
+                       matiere_demandee,
+                       validation_pedagogique`,
+                    [id]
+                );
+
+                if (resultat.rowCount === 0) {
+                    return res.status(404).json({
+                        succes: false,
+                        message:
+                            "Demande introuvable ou déjà traitée."
+                    });
+                }
+
+                return res.json({
+                    succes: true,
+                    demande: resultat.rows[0],
+                    message:
+                        "Profil pédagogique approuvé."
+                });
+            } catch (erreur) {
+                console.error(
+                    "Erreur approbation enseignant :",
+                    erreur.message
+                );
+
+                return res.status(500).json({
+                    succes: false,
+                    message:
+                        "Impossible d'approuver cette demande."
+                });
+            }
+        }
+    );
+
+    // ============================================================
+    // REFUSER UNE DEMANDE ENSEIGNANT
+    // ============================================================
+
+    router.post(
+        "/api/admin/enseignants/:id/refuser",
+        authentifierAdmin,
+        async (req, res) => {
+            const id = req.params.id;
+
+            if (!/^[1-9]\d*$/.test(id)) {
+                return res.status(400).json({
+                    succes: false,
+                    message: "Identifiant invalide."
+                });
+            }
+
+            try {
+                const resultat = await pool.query(
+                    `UPDATE utilisateurs
+                     SET validation_pedagogique = 'refusee'
+                     WHERE id = $1
+                       AND role <> 'admin'
+                       AND type_enseignant IN (
+                           'primaire',
+                           'secondaire'
+                       )
+                       AND validation_pedagogique IN (
+                           'en_attente',
+                           'refusee'
+                       )
+                     RETURNING
+                       id,
+                       telephone,
+                       type_enseignant,
+                       matiere_demandee,
+                       validation_pedagogique`,
+                    [id]
+                );
+
+                if (resultat.rowCount === 0) {
+                    return res.status(404).json({
+                        succes: false,
+                        message:
+                            "Demande introuvable ou déjà traitée."
+                    });
+                }
+
+                return res.json({
+                    succes: true,
+                    demande: resultat.rows[0],
+                    message:
+                        "Demande refusée. Elle pourra être réexaminée."
+                });
+            } catch (erreur) {
+                console.error(
+                    "Erreur refus enseignant :",
+                    erreur.message
+                );
+
+                return res.status(500).json({
+                    succes: false,
+                    message:
+                        "Impossible de refuser cette demande."
+                });
+            }
+        }
+    );
+
 
 
     return router;
