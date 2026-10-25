@@ -89,6 +89,118 @@ module.exports = function creerRouteUtilisateurs(pool) {
         ? matiereDemandee
         : null;
 
+  // Inscription d'un enseignant
+  router.post("/api/utilisateurs/inscription", async (req, res) => {
+    try {
+      if (!pool) {
+        return res.status(503).json({
+          succes: false,
+          message: "Base de données indisponible."
+        });
+      }
+
+      const telephone = String(req.body?.telephone || "")
+        .trim()
+        .replace(/[\s().-]/g, "");
+
+      const motDePasse = String(req.body?.motDePasse || "");
+
+      const typeEnseignant = String(
+        req.body?.type_enseignant || ""
+      ).trim().toLowerCase();
+
+      const niveauEnseignant = String(
+        req.body?.niveau_enseignant || ""
+      ).trim().toUpperCase();
+
+      const matiereDemandee = String(
+        req.body?.matiere_demandee || ""
+      ).trim();
+
+      const directionRegionale = String(
+        req.body?.direction_regionale_enseignant || ""
+      ).trim();
+
+      const inspection = String(
+        req.body?.inspection_enseignant || ""
+      ).trim();
+
+      const etablissement = String(
+        req.body?.etablissement_enseignant || ""
+      ).trim();
+
+      const niveauxPrimaires = [
+        "CI", "CP", "CE1", "CE2", "CM1", "CM2"
+      ];
+
+      if (!/^\+?[0-9]{8,15}$/.test(telephone)) {
+        return res.status(400).json({
+          succes: false,
+          message: "Vérifiez votre numéro de téléphone."
+        });
+      }
+
+      if (motDePasse.length < 8 || motDePasse.length > 128) {
+        return res.status(400).json({
+          succes: false,
+          message:
+            "Le mot de passe doit contenir entre 8 et 128 caractères."
+        });
+      }
+
+      if (!["primaire", "secondaire"].includes(typeEnseignant)) {
+        return res.status(400).json({
+          succes: false,
+          message: "Choisissez le profil primaire ou secondaire."
+        });
+      }
+
+      if (!directionRegionale || !inspection || !etablissement) {
+        return res.status(400).json({
+          succes: false,
+          message:
+            "La direction régionale, l'inspection et le nom de l'établissement sont obligatoires."
+        });
+      }
+
+      if (
+        directionRegionale.length > 150 ||
+        inspection.length > 150 ||
+        etablissement.length > 200
+      ) {
+        return res.status(400).json({
+          succes: false,
+          message:
+            "Vérifiez la longueur des informations professionnelles saisies."
+        });
+      }
+
+      if (typeEnseignant === "primaire") {
+        if (!niveauxPrimaires.includes(niveauEnseignant)) {
+          return res.status(400).json({
+            succes: false,
+            message:
+              "Choisissez un niveau : CI, CP, CE1, CE2, CM1 ou CM2."
+          });
+        }
+      }
+
+      if (typeEnseignant === "secondaire" && !matiereDemandee) {
+        return res.status(400).json({
+          succes: false,
+          message:
+            "Choisissez la matière enseignée au secondaire."
+        });
+      }
+
+      const niveau = typeEnseignant === "primaire"
+        ? niveauEnseignant
+        : null;
+
+      const matiere = typeEnseignant === "secondaire"
+        ? matiereDemandee
+        : null;
+
       const hash = await bcrypt.hash(motDePasse, 12);
 
       const resultat = await pool.query(
@@ -101,10 +213,14 @@ module.exports = function creerRouteUtilisateurs(pool) {
             type_enseignant,
             niveau_enseignant,
             matiere_demandee,
+            direction_regionale_enseignant,
+            inspection_enseignant,
+            etablissement_enseignant,
             validation_pedagogique
           )
          VALUES (
-            $1, $2, 'actif', 'testeur', $3, $4, $5, 'en_attente'
+            $1, $2, 'actif', 'testeur', $3, $4, $5, $6, $7, $8,
+            'en_attente'
          )
          RETURNING
            id,
@@ -114,6 +230,9 @@ module.exports = function creerRouteUtilisateurs(pool) {
            type_enseignant,
            niveau_enseignant,
            matiere_demandee,
+           direction_regionale_enseignant,
+           inspection_enseignant,
+           etablissement_enseignant,
            validation_pedagogique,
            cree_le`,
         [
@@ -121,7 +240,10 @@ module.exports = function creerRouteUtilisateurs(pool) {
           hash,
           typeEnseignant,
           niveau,
-          matiere
+          matiere,
+          directionRegionale,
+          inspection,
+          etablissement
         ]
       );
 
