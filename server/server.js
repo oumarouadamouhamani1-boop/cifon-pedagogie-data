@@ -6,7 +6,7 @@ const OpenAI = require("openai");
 const { Pool } = require("pg");
 const creerRouteAdmin = require("./admin");
 const creerRouteUtilisateurs = require("./utilisateurs");
-const creerRoutesProgrammes = require("../programmes");
+const creerRoutesProgrammes = require("./programmes");
 
 const app = express();
 
