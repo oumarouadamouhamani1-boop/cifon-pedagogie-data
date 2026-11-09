@@ -2,19 +2,23 @@
 {
   "name": "cifon-pedagogie-server",
   "version": "1.0.0",
-  "description": "Serveur de génération de cours de CIFON PÉDAGOGIE NIGER",
+  "description": "Serveur de génération de cours et de gestion des programmes scolaires de CIFON PÉDAGOGIE NIGER",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-"dependencies": {
-  "express": "^5.1.0",
-  "openai": "^5.20.0",
-  "pg": "^8.16.3",
-  "bcryptjs": "^3.0.2",
-   "cookie-parser": "^1.4.7"
-},
+  "dependencies": {
+    "express": "^5.1.0",
+    "openai": "^5.20.0",
+    "pg": "^8.16.3",
+    "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
+    "multer": "^2.0.2",
+    "pdf-parse": "^1.1.1",
+    "mammoth": "^1.10.0",
+    "@aws-sdk/client-s3": "^3.800.0"
+  },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   }
 }
