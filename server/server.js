@@ -6,6 +6,7 @@ const OpenAI = require("openai");
 const { Pool } = require("pg");
 const creerRouteAdmin = require("./admin");
 const creerRouteUtilisateurs = require("./utilisateurs");
+const creerRoutesProgrammes = require("./programmes");
 
 const app = express();
 
@@ -26,6 +27,7 @@ const pool = process.env.DATABASE_URL
 // Routes d'administration CIFON
 app.use(creerRouteAdmin(pool));
 app.use(creerRouteUtilisateurs(pool));
+app.use("/api/programmes", creerRoutesProgrammes(pool));
 
 // Vérification de la connexion sans bloquer le démarrage.
 if (pool) {
